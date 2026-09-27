@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Board } from './board';
-import { announcementEmbed, boardButtons, boardEmbed, distributionBars, grid, leaderboardEmbed, rank, resultEmbed, statsEmbed, type RankedRow } from './discord';
+import { HOW_TO, announcementEmbed, boardEmbed, playButton, distributionBars, grid, leaderboardEmbed, rank, resultEmbed, statsEmbed, type RankedRow } from './discord';
 import { compare } from './engine';
 import { playerStats } from './stats';
 import type { Card } from './types';
@@ -48,10 +48,12 @@ describe('private board', () => {
     expect(JSON.stringify(e)).not.toContain('Test Drake');
   });
 
-  it('welcomes the player with the puzzle and its Sydney date', () => {
+  it('welcomes the player with the puzzle, its Sydney date and how to play', () => {
     const e = boardEmbed(board({}), cards);
     expect(e.title).toBe('Welcome to Realmdle #12 - Friday 9 October 2026');
-    expect(e.description).toContain('Threshold, Type, Mana, Power, Rarity, Set');
+    expect(e.description).toBe(HOW_TO);
+    expect(HOW_TO).toContain('**/guess**');
+    expect(HOW_TO).toContain('Threshold · Type · Mana · Power · Rarity · Set');
   });
 
   it('labels each clue, three to a line', () => {
@@ -67,15 +69,13 @@ describe('private board', () => {
     expect(e.fields?.[0]).toEqual({ name: '⚠️ Last guess! Here is a hint ⚠️', value: '💡 The card is a **Dragon**.' });
   });
 
-  it('offers a Guess button only while playing, tied to the puzzle', () => {
-    expect(boardButtons(board({}))[0].components[0].custom_id).toBe('realmdle:guess:12');
-    expect(boardButtons(board({ over: true }))).toEqual([]);
-  });
-
-  it('reveals the card with its art once over', () => {
-    const e = boardEmbed(board({ over: true, won: true, answer: 'ans', guesses: [{ id: 'ans', feedback: compare(answer, answer, SETS) }] }), cards);
+  it('reveals the card with its art, the streak and a countdown to the next card', () => {
+    const stats = playerStats([{ puzzle: 11, solved: true, attempts: 3, finished: true }, { puzzle: 12, solved: true, attempts: 1, finished: true }], 12);
+    const e = boardEmbed(board({ over: true, won: true, answer: 'ans', stats, guesses: [{ id: 'ans', feedback: compare(answer, answer, SETS) }] }), cards);
     expect(e.title).toBe('🏆 Solved in 1: Test Drake');
     expect(e.description).toContain('Got it in one!');
+    // #13 starts at midnight on 10 October in Sydney, in daylight saving (UTC+11)
+    expect(e.description).toContain(`🔥 Streak **2** · ⏳ Next card <t:${Date.UTC(2026, 9, 9, 13) / 1000}:R>`);
     expect(e.image?.url).toBe(answer.image);
   });
 });
@@ -92,27 +92,34 @@ describe('public result', () => {
     stats: playerStats([{ puzzle: 11, solved: true, attempts: 3, finished: true }, { puzzle: 12, solved: true, attempts: 2, finished: true }], 12),
   });
 
-  it('shows the squares, score, streak and the day, but never the card', () => {
+  it('shows the score, a cheer, the squares, streak, place and the day, but never the card', () => {
     const e = resultEmbed(finished, who);
     expect(e.author?.name).toBe('Bob · Realmdle #12 · 2/6');
-    expect(e.description).toBe(`<@${who.id}> solved it in 2. 🔥🔥\n\n${grid(finished.guesses.map((g) => g.feedback))}`);
-    expect(e.fields).toEqual([
-      { name: 'Streak', value: '🔥 2', inline: true },
-      { name: 'Solved', value: '100% of 2', inline: true },
-      { name: 'Players today', value: '👥 24 of 31 solved it', inline: true },
-    ]);
+    expect(e.description).toBe(
+      `<@${who.id}> solved **Realmdle #12** in **2/6**\n*🔥 Scary good!*\n\n${grid(finished.guesses.map((g) => g.feedback))}\n\n` +
+        '🔥 **2**-day streak · 🏅 24th to solve today\n👥 **31** players today · **24** solved',
+    );
+    expect(e.fields).toBeUndefined();
     const text = JSON.stringify(e);
     expect(text).not.toContain('Test Drake');
     expect(text).not.toContain('img.test');
   });
 
-  it('leaves out the day’s count while the player is the only one to finish', () => {
-    const fields = resultEmbed({ ...finished, community: { finished: 1, solved: 1 } }, who).fields!;
-    expect(fields.map((f) => f.name)).toEqual(['Streak', 'Solved']);
+  it('celebrates the first solver, and counts a lone player', () => {
+    const e = resultEmbed({ ...finished, community: { finished: 1, solved: 1 } }, who);
+    expect(e.description).toContain('🥇 First to solve today');
+    expect(e.description).toContain('👥 **1** player today · **1** solved');
   });
 
-  it('marks a loss', () => {
-    expect(resultEmbed({ ...finished, won: false }, who).author?.name).toContain('X/6');
+  it('marks a loss without a place', () => {
+    const e = resultEmbed({ ...finished, won: false, stats: null }, who);
+    expect(e.author?.name).toContain('X/6');
+    expect(e.description).toContain('ran out of guesses');
+    expect(e.description).not.toContain('to solve today');
+  });
+
+  it('comes with a Play button, so one tap takes anyone to their own board', () => {
+    expect(playButton(12)[0].components[0]).toMatchObject({ custom_id: 'realmdle:play', label: 'Play Realmdle #12' });
   });
 });
 
@@ -153,7 +160,17 @@ describe('leaderboard', () => {
 describe('midnight post', () => {
   it('recaps yesterday and invites people to play', () => {
     const e = announcementEmbed(13, { card: answer, finished: 31, solved: 24 });
-    expect(e.title).toBe('Realmdle #13 is live');
-    expect(e.description).toContain("Yesterday's card was **Test Drake** (Beta). 24 of 31 players solved it.");
+    expect(e.title).toBe('🔮 Realmdle #13 is live');
+    expect(e.description).toContain("Yesterday's card was **Test Drake** (Beta).\n👥 **31** played · **24** solved");
+    expect(e.description).toContain(HOW_TO);
+    expect(e.fields).toBeUndefined(); // nobody on the leaderboard yet
+  });
+
+  it('shows the top ten with streak, solved % and games played', () => {
+    const rows: RankedRow[] = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, name: `p${i}`, currentStreak: 12 - i, maxStreak: 12, winRate: 90, played: 20, averageGuesses: 3 }));
+    const lines = announcementEmbed(13, null, rows).fields![0].value.split('\n');
+    expect(lines).toHaveLength(10);
+    expect(lines[0]).toBe('🥇 <@p0>  🔥 **12** · 90% · 20 played');
+    expect(lines[9]).toBe('`10` <@p9>  🔥 **3** · 90% · 20 played');
   });
 });

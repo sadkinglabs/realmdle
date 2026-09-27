@@ -34,6 +34,14 @@ export function puzzleNumber(now: Date): number {
   return Math.max(1, dayIndex(now) + 1);
 }
 
+/** When a puzzle starts: midnight in Sydney (UTC+10, or +11 in daylight saving), as epoch ms. */
+export function puzzleStart(puzzle: number): number {
+  const midnightUtc = EPOCH + (puzzle - 1) * DAY_MS;
+  const hour = (t: number) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: TIME_ZONE, hour: '2-digit', hourCycle: 'h23' }).format(t));
+  const standard = midnightUtc - 10 * 3_600_000;
+  return hour(standard) === 0 ? standard : standard - 3_600_000;
+}
+
 /** FNV-1a then a murmur3 finaliser: a cheap hash that spreads well. */
 export function hash(text: string): number {
   let h = 0x811c9dc5;
@@ -238,15 +246,18 @@ export function formatElements(elements: Card['elements']): string {
   return elements.length ? [...elements].sort((a, b) => ELEMENTS.indexOf(a) - ELEMENTS.indexOf(b)).join(' ') : 'None';
 }
 
+/** A name for matching what players type: case, spaces and punctuation ignored ("kings" finds "King's"). */
+export const looseName = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
 /** Names that match what has been typed: prefix matches first, then anywhere. */
 export function suggest(cards: Card[], query: string, exclude: Set<string>, limit = 10): Card[] {
-  const q = query.trim().toLowerCase();
+  const q = looseName(query);
   if (!q) return [];
   const starts: Card[] = [];
   const contains: Card[] = [];
   for (const card of cards) {
     if (exclude.has(card.id)) continue;
-    const name = card.name.toLowerCase();
+    const name = looseName(card.name);
     if (name.startsWith(q)) starts.push(card);
     else if (name.includes(q)) contains.push(card);
   }

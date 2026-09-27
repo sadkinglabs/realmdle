@@ -1,4 +1,4 @@
-// The /realmdle slash command as Discord registers it. The Worker keeps
+// The /guess and /realmdle slash commands as Discord registers them. The Worker keeps
 // Discord in step with this (syncCommands in src/discord.ts): whenever the
 // definition changes, the next visit to the Worker's address or the next
 // hourly run re-registers it on the server.
@@ -8,7 +8,11 @@ const STRING = 3;
 const BOOLEAN = 5;
 const USER = 6;
 
+const CARD = { type: STRING, name: 'card', description: 'Start typing a card name', required: true, autocomplete: true };
+
 export const COMMANDS = [
+  // the quick way in: `/gu`, pick the command, type a few letters, pick the card
+  { name: 'guess', description: 'Guess today’s Realmdle card', contexts: [0], options: [CARD] },
   {
     name: 'realmdle',
     description: 'Guess the Sorcery card of the day',
@@ -19,8 +23,8 @@ export const COMMANDS = [
       {
         type: SUB,
         name: 'guess',
-        description: 'Guess a card',
-        options: [{ type: STRING, name: 'card', description: 'Start typing a card name', required: true, autocomplete: true }],
+        description: 'Guess a card (or just use /guess)',
+        options: [CARD],
       },
       {
         type: SUB,

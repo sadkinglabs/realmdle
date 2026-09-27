@@ -1,7 +1,7 @@
 # Realmdle
 
 Guess the Sorcery: Contested Realm card of the day in six tries, with the
-`/realmdle` slash command in the Sorcery TCG Australia Discord. A
+`/guess` and `/realmdle` slash commands in the Sorcery TCG Australia Discord. A
 Cloudflare Worker at `realmdle.realmofoz.com` with a D1 database.
 
 Every step of the game is private (Discord's ephemeral replies, visible
@@ -10,18 +10,19 @@ posted to #realmdle when they finish. The bot only answers in the
 community's server, so the stats and leaderboard are that server's.
 
 ```
-/realmdle play                      your board for today (also the Play button on the midnight post)
-/realmdle guess card:<name>         autocomplete lists each set separately, e.g. "Pudge Butcher (Beta)"
+/guess card:<name>                  the quick way to guess: autocomplete lists each card name once
+/realmdle play                      your board for today (also the Play button on the midnight post and every result)
+/realmdle guess card:<name>         the same as /guess
 /realmdle stats [player]            your stats; someone else's only if they joined the leaderboard
 /realmdle leaderboard [sort]        top ten by current streak, or by solved % (5+ games), plus your place
 /realmdle settings leaderboard:<>   join or leave the leaderboard
 /realmdle forget-me confirm:True    delete your record and every game
 ```
 
-The board also has a **Guess** button, so players need not type the
-command each time: it opens a box for a card name, guesses the card if
-only one matches, and otherwise offers a menu of the matches (such as the
-same card in Alpha and Beta). The game stays on one private message.
+Guessing is kept to one command, because only slash commands get
+Discord's autocomplete: `/gu`, pick `/guess`, type a few letters, pick
+the card. A typed name also works without picking, even a partial one if
+it fits only one card, ignoring case and punctuation.
 
 ## Rules
 
@@ -29,11 +30,12 @@ same card in Alpha and Beta). The game stays on one private message.
   cost and power (close within one, with a higher/lower arrow), rarity
   and set (with a rarer/newer arrow). The sixth and last guess also shows
   the answer's subtypes (Monster, Mortal, Spirit...) as a hint.
-- **One entry per card per set:** Apprentice Wizard in Alpha
-  (`C000001-001`) and in Beta (`C000001-002`) are separate guesses and
-  answers, with the same stats and a different set. Foils and other
-  finishes in a set are the same entry. Tokens and promo printings are
-  left out.
+- **Guess by name, answers by set:** each set's printing is its own
+  possible answer (Apprentice Wizard in Alpha is `C000001-001`, in Beta
+  `C000001-002`: same stats, different set), but players guess by name.
+  Guessing the answer's name wins whatever set it is from; any other name
+  in several sets is scored as its first printing. Foils and other
+  finishes are the same entry. Tokens and promo printings are left out.
 - **One possible answer:** a card can only be the answer if no other card
   shares all six of its clue values; otherwise a player could turn every
   clue green and still be wrong. About 620 of ~1,480 entries qualify.
@@ -80,11 +82,16 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
   average) are computed from `plays` by `src/lib/stats.ts`, never stored.
   A streak survives until a whole day is missed.
 - **The public result** shows the player (a mention, which does not ping
-  them), score, squares, streak, solved % and the day's solve count. It
-  never names the card. The bot posts it to `DISCORD_CHANNEL_ID`.
+  them), score, a cheer, the squares, their streak, their place among the
+  day's solvers and how many played and solved, with a Play button so
+  anyone reading it is one tap from their own board. It never names the
+  card. The bot posts it to `DISCORD_CHANNEL_ID`.
+- **The finished board** (private) reveals the card and art, the streak and
+  a live countdown to the next card.
 - **The midnight post** goes to the same channel on the first hourly run
-  of the Sydney day: yesterday's card and solve count, and a Play button.
-  The `announcements` table makes it once per day.
+  of the Sydney day: yesterday's card and numbers, how to play, the top
+  ten on the leaderboard (streak, solved %, games played) and a Play
+  button. The `announcements` table makes it once per day.
 - **Privacy:** the database holds the Discord id, display name, avatar
   hash and guesses, nothing else. The leaderboard is opt-in, and
   `/realmdle forget-me` deletes everything for that player.
@@ -146,7 +153,7 @@ paste the bot token anywhere; it only goes into Cloudflare.
 npm ci
 node scripts/discord-smoke.mjs keys > .dev.vars   # test key pair, fake server and channel ids
 npm run dev                                        # local D1 + Worker on :8787
-npm run smoke                                      # 32 checks, with a stand-in Discord API on :8799
+npm run smoke                                      # 28 checks, with a stand-in Discord API on :8799
 npm test && npm run typecheck
 ```
 

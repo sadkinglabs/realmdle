@@ -6,7 +6,7 @@
 // Emoji are Discord's native way to show colour, so the designs use them.
 
 import type { Board } from './board';
-import { COLUMNS, MAX_GUESSES, formatElements, type Clue, type Column, type Feedback } from './engine';
+import { COLUMNS, MAX_GUESSES, formatElements, puzzleStart, type Clue, type Column, type Feedback } from './engine';
 import type { PlayerStats } from './stats';
 import type { Card } from './types';
 
@@ -55,20 +55,32 @@ export function guessLines(card: Card, feedback: Feedback): string {
 
 /** A cheer for the finish, by how many guesses it took; index 0 is a loss. */
 const CHEERS = [
-  '💀 Out of guesses. Better luck tomorrow!',
-  '🤯🏆 Got it in one! Pure sorcery.',
-  '🔥🔥 Two guesses. Scary good!',
-  '🎉✨ Three guesses. Brilliant!',
-  '🎉 Four guesses. Nicely done!',
-  '👏 Five guesses. Solid!',
-  '😅🎉 Phew, on the very last guess!',
+  '💀 The card won this time.',
+  '🤯 Got it in one! Pure sorcery.',
+  '🔥 Scary good!',
+  '✨ Brilliant!',
+  '🎉 Nicely done!',
+  '👏 Solid!',
+  '😅 Phew, just in time!',
 ];
 export const cheer = (won: boolean, guesses: number) => CHEERS[won ? guesses : 0];
+
+/** How to play, on the welcome board and the midnight post. */
+export const HOW_TO =
+  'Guess the Sorcery card of the day in 6 tries.\n' +
+  'Type **/guess** and pick a card from the list as you type.\n\n' +
+  `Each guess compares **${COLUMNS.map((c) => LABELS[c]).join(' · ')}**\n` +
+  '🟩 match  🟨 close  ⬛ miss\n' +
+  '▲▼ the answer is higher or lower, rarer or more common, newer or older\n' +
+  '💡 Your last guess comes with a hint.';
 
 /** The spoiler-free grid: squares only. */
 export function grid(feedbacks: Feedback[]): string {
   return feedbacks.map((f) => COLUMNS.map((c) => SQUARE[f[c].verdict]).join('')).join('\n');
 }
+
+/** A Discord timestamp that counts down in each viewer's own time, e.g. "in 7 hours". */
+const countdown = (ms: number) => `<t:${Math.floor(ms / 1000)}:R>`;
 
 /** The player's own board, shown privately after every step. */
 export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
@@ -80,12 +92,25 @@ export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
   const lines = rows.map((r) => guessLines(r.card, r.feedback)).join('\n\n');
 
   if (board.over && answer) {
+    const streak = board.stats?.currentStreak ? `🔥 Streak **${board.stats.currentStreak}** · ` : '';
     return {
-      color: board.won ? COLOURS.win : COLOURS.loss,
+      color: board.won ? (rows.length <= 2 ? COLOURS.gold : COLOURS.win) : COLOURS.loss,
       title: board.won ? `${rows.length <= 2 ? '🏆' : '🎉'} Solved in ${rows.length}: ${answer.name}` : `Out of guesses. It was ${answer.name}`,
-      description: `**${cheer(board.won, rows.length)}**\n${answer.type}${answer.subtypes.length ? `, ${answer.subtypes.join(' ')}` : ''} · ${answer.set}\n\n${lines}`,
+      description:
+        `**${cheer(board.won, rows.length)}**\n` +
+        `${answer.type}${answer.subtypes.length ? `, ${answer.subtypes.join(' ')}` : ''} · ${answer.set}\n\n` +
+        `${streak}⏳ Next card ${countdown(puzzleStart(board.puzzle + 1))}\n\n${lines}`,
       image: answer.image ? { url: answer.image } : undefined,
-      footer: { text: `Realmdle #${board.puzzle} · your result has been posted for the server` },
+      footer: { text: `Realmdle #${board.puzzle} · your result is posted for the server` },
+    };
+  }
+
+  if (!rows.length) {
+    return {
+      color: COLOURS.neutral,
+      title: `Welcome to Realmdle #${board.puzzle} - ${longDate(board.date)}`,
+      description: HOW_TO,
+      footer: { text: 'Only you can see your guesses' },
     };
   }
 
@@ -95,25 +120,11 @@ export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
   const left = MAX_GUESSES - rows.length;
   return {
     color: board.hint ? COLOURS.warning : COLOURS.neutral,
-    title: rows.length
-      ? `Realmdle #${board.puzzle} · ${left === 1 ? '⚠️ last guess' : `${left} guesses left`}`
-      : `Welcome to Realmdle #${board.puzzle} - ${longDate(board.date)}`,
-    description: rows.length
-      ? lines
-      : 'Guess the Sorcery card of the day in six tries. A new card arrives at midnight, Sydney time.\n' +
-        'Press **Guess** and type a card name, or use `/realmdle guess` to pick from suggestions as you type.\n\n' +
-        `Each guess shows its ${COLUMNS.map((c) => LABELS[c]).join(', ')}:\n` +
-        '🟩 match  🟨 close  ⬛ no match\n▲▼ the answer has more or less mana or power, is rarer or more common, or is from a newer or older set',
+    title: `Realmdle #${board.puzzle} · ${left === 1 ? '⚠️ last guess' : `${left} guesses left`}`,
+    description: lines,
     fields,
-    footer: { text: 'Only you can see this · Guess, or /realmdle guess' },
+    footer: { text: 'Only you can see this · /guess for your next card' },
   };
-}
-
-/** The Guess button under an unfinished board. Its id carries the puzzle, so an old board cannot guess on a new day. */
-export const GUESS_BUTTON = 'realmdle:guess';
-export function boardButtons(board: Board) {
-  if (board.over) return [];
-  return [{ type: 1, components: [{ type: 2, style: 1, label: 'Guess', emoji: { name: '✏️' }, custom_id: `${GUESS_BUTTON}:${board.puzzle}` }] }];
 }
 
 export type Who = { id: string; name: string; avatar: string | null };
@@ -121,33 +132,37 @@ export type Who = { id: string; name: string; avatar: string | null };
 export const avatarUrl = (who: Who) =>
   who.avatar ? `https://cdn.discordapp.com/avatars/${who.id}/${who.avatar}.png?size=128` : `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(who.id) >> 22n) % 6}.png`;
 
+/** The Play button, on the midnight post and every public result: one tap from seeing a result to playing. */
+export const PLAY_BUTTON = 'realmdle:play';
+export const playButton = (puzzle: number) => [
+  { type: 1, components: [{ type: 2, style: 1, label: `Play Realmdle #${puzzle}`, emoji: { name: '🔮' }, custom_id: PLAY_BUTTON }] },
+];
+
+const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')}`;
+
+/** How a solve ranks among the day's solvers: 🥇 First, 🥈 2nd, 🥉 3rd, then 4th and on. */
+function place(n: number): string {
+  return n === 1 ? '🥇 First to solve today' : `${MEDALS[n - 1] ?? '🏅'} ${ordinal(n)} to solve today`;
+}
+
 /**
  * The public result, posted once a player finishes. It never names the
- * card: only the squares, the score, the streak and how the day is going.
+ * card: the squares, the score and a cheer, then the player's streak, their
+ * place among today's solvers and how the server is doing. Laid out as
+ * lines rather than fields, which Discord stacks one per row on phones.
  */
 export function resultEmbed(board: Board, who: Who): Embed {
   const feedbacks = board.guesses.map((g) => g.feedback);
-  const stats = board.stats;
-  const score = board.won ? `${feedbacks.length}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`;
+  const { finished, solved } = board.community;
   const headline = board.won
-    ? feedbacks.length === 1
-      ? 'got it in one! 🤯🏆'
-      : `solved it in ${feedbacks.length}. ${cheer(true, feedbacks.length).split(' ')[0]}`
-    : 'ran out of guesses. 💀';
-  const fields: Embed['fields'] = [];
-  if (stats) {
-    fields.push({ name: 'Streak', value: stats.currentStreak ? `🔥 ${stats.currentStreak}` : '0', inline: true });
-    fields.push({ name: 'Solved', value: `${stats.winRate}% of ${stats.played}`, inline: true });
-  }
-  // how the server is doing on today's card, once someone else has finished too
-  if (board.community.finished > 1)
-    fields.push({ name: 'Players today', value: `👥 ${board.community.solved} of ${board.community.finished} solved it`, inline: true });
+    ? `<@${who.id}> solved **Realmdle #${board.puzzle}** in **${feedbacks.length}/${MAX_GUESSES}**`
+    : `<@${who.id}> ran out of guesses on **Realmdle #${board.puzzle}**`;
+  const standing = [board.stats?.currentStreak ? `🔥 **${board.stats.currentStreak}**-day streak` : '', board.won ? place(solved) : ''].filter(Boolean).join(' · ');
+  const day = `👥 **${finished}** ${finished === 1 ? 'player' : 'players'} today · **${solved}** solved`;
   return {
     color: board.won ? (feedbacks.length <= 2 ? COLOURS.gold : COLOURS.win) : COLOURS.loss,
-    author: { name: `${who.name} · Realmdle #${board.puzzle} · ${score}`, icon_url: avatarUrl(who) },
-    description: `<@${who.id}> ${headline}\n\n${grid(feedbacks)}`,
-    fields,
-    footer: { text: 'Play with /realmdle' },
+    author: { name: `${who.name} · Realmdle #${board.puzzle} · ${board.won ? feedbacks.length : 'X'}/${MAX_GUESSES}`, icon_url: avatarUrl(who) },
+    description: `${headline}\n*${cheer(board.won, feedbacks.length)}*\n\n${grid(feedbacks)}\n\n${standing ? `${standing}\n` : ''}${day}`,
     timestamp: new Date().toISOString(),
   };
 }
@@ -241,16 +256,21 @@ export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, vie
   };
 }
 
-/** The midnight post: yesterday's reveal and numbers, and a button to play. */
-export function announcementEmbed(puzzle: number, yesterday: { card: Card; finished: number; solved: number } | null): Embed {
+/**
+ * The midnight post: yesterday's reveal, how to play, and the top ten so
+ * far (players on the leaderboard, ranked by streak), above a Play button.
+ */
+export function announcementEmbed(puzzle: number, yesterday: { card: Card; finished: number; solved: number } | null, ranked: RankedRow[] = []): Embed {
   const recap = yesterday
-    ? `Yesterday's card was **${yesterday.card.name}** (${yesterday.card.set}). ${yesterday.solved} of ${yesterday.finished} players solved it.`
-    : 'The first Realmdle is here.';
+    ? `Yesterday's card was **${yesterday.card.name}** (${yesterday.card.set}).\n👥 **${yesterday.finished}** played · **${yesterday.solved}** solved`
+    : 'The first Realmdle is here!';
+  const top = ranked.slice(0, 10).map((r, i) => `${MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``} <@${r.id}>  🔥 **${r.currentStreak}** · ${r.winRate}% · ${r.played} played`);
   return {
     color: COLOURS.neutral,
-    title: `Realmdle #${puzzle} is live`,
-    description: `${recap}\n\nGuess today's Sorcery card in six tries. Your guesses are private; your result is posted here when you finish.`,
+    title: `🔮 Realmdle #${puzzle} is live`,
+    description: `${recap}\n\n${HOW_TO}`,
     thumbnail: yesterday?.card.image ? { url: yesterday.card.image } : undefined,
-    footer: { text: 'Press Play or use /realmdle play' },
+    fields: top.length ? [{ name: '🏆 Top 10 · streak · solved · played', value: top.join('\n') }] : undefined,
+    footer: { text: 'New card every midnight, Sydney time · join the top 10 with /realmdle settings' },
   };
 }

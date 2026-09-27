@@ -4,13 +4,55 @@
 import cardData from '../data/cards.json';
 import type { Board } from './lib/board';
 import type { RankedRow } from './lib/discord';
-import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, compare, extendSchedule, puzzleDate, releaseGate } from './lib/engine';
+import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, compare, extendSchedule, looseName, puzzleDate, releaseGate, suggest } from './lib/engine';
 import { playerStats, type Play } from './lib/stats';
 import type { Card, CardData } from './lib/types';
 
 const data = cardData as CardData;
 export const cardsById = new Map(data.cards.map((c) => [c.id, c]));
 const eligibleFrom = releaseGate(data.sets, data.setDates);
+
+/**
+ * Players guess a card by name, whatever its set. A name printed in several
+ * sets counts as its first printing, unless it is the answer's name, which
+ * wins in any set. Printings are listed oldest set first.
+ */
+const printingsByName = new Map<string, Card[]>();
+for (const card of [...data.cards].sort((a, b) => data.sets.indexOf(a.set) - data.sets.indexOf(b.set))) {
+  const key = looseName(card.name);
+  printingsByName.set(key, [...(printingsByName.get(key) ?? []), card]);
+}
+/** One entry per name, for autocomplete. */
+export const guessableCards = [...printingsByName.values()].map((printings) => printings[0]);
+
+/** The entry a guess of this name stands for today. */
+export function printingFor(name: string, answer: Card): Card | null {
+  const printings = printingsByName.get(looseName(name));
+  if (!printings) return null;
+  return printings.find((c) => c.id === answer.id) ?? printings[0];
+}
+
+/**
+ * What a player's guess means: an autocomplete pick, or a typed name. A
+ * typed name may be partial if it fits only one card; otherwise the error
+ * offers the closest names.
+ */
+export function pickCard(value: string, answer: Card, guessed: Set<string>): { card: Card } | { error: string } {
+  const exact = printingFor(cardsById.get(value)?.name ?? value, answer);
+  if (exact) return { card: exact };
+  const close = suggest(guessableCards, value, guessed, 3);
+  if (close.length === 1) return { card: printingFor(close[0].name, answer)! };
+  if (close.length) return { error: `No card called **${value.trim()}**. Did you mean ${close.map((c) => `**${c.name}**`).join(', ')}? Pick one from the list as you type.` };
+  return { error: `No card called **${value.trim()}**. Start typing and pick a card from the list.` };
+}
+
+/** The autocomplete entries of the names a player has guessed today, to leave out of the list. */
+export function guessedEntries(ids: Set<string>): Set<string> {
+  return new Set([...ids].flatMap((id) => {
+    const card = cardsById.get(id);
+    return card ? [printingsByName.get(looseName(card.name))![0].id] : [];
+  }));
+}
 
 const now = () => new Date().toISOString();
 
@@ -137,7 +179,8 @@ export async function guess(db: D1Database, playerId: string, puzzle: number, an
   const row = await db.prepare('SELECT guesses, attempts, finished FROM plays WHERE discord_id = ? AND puzzle = ?').bind(playerId, puzzle).first<PlayRow>();
   const previous = row ? (JSON.parse(row.guesses) as string[]) : [];
   if (row?.finished) return { ok: false, error: 'You have already finished today’s puzzle.' };
-  if (previous.includes(cardId)) return { ok: false, error: 'You have already guessed that card.' };
+  const name = looseName(cardsById.get(cardId)!.name);
+  if (previous.some((id) => looseName(cardsById.get(id)?.name ?? '') === name)) return { ok: false, error: 'You have already guessed that card.' };
 
   const guesses = [...previous, cardId];
   const solved = cardId === answer.id;

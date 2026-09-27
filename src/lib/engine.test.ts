@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerPool, compare, extendSchedule, nameRepeats, puzzleDate, puzzleNumber, releaseGate, suggest } from './engine';
+import { answerPool, compare, extendSchedule, nameRepeats, puzzleDate, puzzleNumber, puzzleStart, releaseGate, suggest } from './engine';
 import type { Card } from './types';
 
 // Made-up cards: the rules are tested against shapes, not real card data.
@@ -144,5 +144,20 @@ describe('suggest', () => {
   it('lists prefix matches before other matches and leaves out guessed cards', () => {
     expect(suggest(cards, 'drake', new Set()).map((c) => c.name)).toEqual(['Drake Rider', 'Fire Drake', 'Water Drake']);
     expect(suggest(cards, 'drake', new Set(['fire-drake'])).map((c) => c.name)).toEqual(['Drake Rider', 'Water Drake']);
+  });
+
+  it('ignores case, spaces and punctuation', () => {
+    const named = [card({ name: "King's Bridge" }), card({ name: 'Kingdom' })];
+    expect(suggest(named, 'kings b', new Set()).map((c) => c.name)).toEqual(["King's Bridge"]);
+    expect(suggest(named, 'KING', new Set()).map((c) => c.name)).toEqual(["King's Bridge", 'Kingdom']);
+  });
+});
+
+describe('puzzleStart', () => {
+  it('is midnight in Sydney, in standard time and in daylight saving', () => {
+    expect(new Date(puzzleStart(1)).toISOString()).toBe('2026-09-27T14:00:00.000Z'); // AEST, UTC+10
+    expect(new Date(puzzleStart(13)).toISOString()).toBe('2026-10-09T13:00:00.000Z'); // AEDT, UTC+11
+    expect(puzzleNumber(new Date(puzzleStart(13)))).toBe(13);
+    expect(puzzleNumber(new Date(puzzleStart(13) - 1))).toBe(12);
   });
 });
