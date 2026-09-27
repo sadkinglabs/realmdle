@@ -19,7 +19,7 @@ if (process.argv[2] === 'keys') {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const pub = publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('hex');
   const priv = privateKey.export({ format: 'der', type: 'pkcs8' }).toString('hex');
-  console.log(`DISCORD_PUBLIC_KEY=${pub}\nDISCORD_TEST_PRIVATE_KEY=${priv}\nPLAN_SALT=local-test-salt\nDISCORD_BOT_TOKEN=test-token\nDISCORD_GUILD_ID=777\nDISCORD_CHANNEL_ID=555\nDISCORD_API=http://127.0.0.1:8799`);
+  console.log(`DISCORD_PUBLIC_KEY=${pub}\nDISCORD_TEST_PRIVATE_KEY=${priv}\nPLAN_SALT=local-test-salt\nDISCORD_BOT_TOKEN=test-token\nDISCORD_APPLICATION_ID=app1\nDISCORD_GUILD_ID=777\nDISCORD_CHANNEL_ID=555\nDISCORD_API=http://127.0.0.1:8799`);
   process.exit(0);
 }
 
@@ -150,6 +150,13 @@ await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
 await new Promise((res) => setTimeout(res, 1500));
 const announcements = posts.filter((p) => p.body.components);
 check('the midnight post goes out once, with a Play button', announcements.length === 1 && announcements[0].body.components[0].components[0].custom_id === 'realmdle:play', `${announcements.length} posted`);
+
+// the bot registers /realmdle itself, once per change of definition
+await fetch(`${BASE}/`);
+await fetch(`${BASE}/`);
+await new Promise((res) => setTimeout(res, 1500));
+const registrations = posts.filter((p) => p.path === '/applications/app1/guilds/777/commands');
+check('opening the address registers /realmdle once, not on every visit', registrations.length === 1 && registrations[0].body[0].name === 'realmdle' && registrations[0].auth === 'Bot test-token', `${registrations.length} registration(s)`);
 
 mock.close();
 console.log(failures ? `\n${failures} failed` : '\nall checks passed');

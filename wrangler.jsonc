@@ -14,6 +14,7 @@
   "vars": {
     // Public values from Discord (README.md, setup step 3). The two secrets
     // are set with `npx wrangler secret put`: DISCORD_BOT_TOKEN, PLAN_SALT.
+    "DISCORD_APPLICATION_ID": "",
     "DISCORD_PUBLIC_KEY": "",
     "DISCORD_GUILD_ID": "",
     "DISCORD_CHANNEL_ID": ""

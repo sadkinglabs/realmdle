@@ -64,7 +64,7 @@ src/env.ts            the bindings and secrets, all optional until set up
 src/lib/              rules and planner (engine), stats, embed designs (discord), card adapter
 data/cards.json       the card pool, refreshed daily by .github/workflows/refresh-cards.yml
 migrations/           D1 schema: puzzles, players, plays, announcements
-scripts/              fetch-cards (card pool), discord-commands (register /realmdle), discord-smoke (rehearsal)
+scripts/              fetch-cards (card pool), discord-commands (register /realmdle by hand), discord-smoke (rehearsal)
 ```
 
 - **Trust:** Discord signs every interaction with the application's
@@ -98,44 +98,42 @@ clone of the registry:
 ## Setup
 
 Once, by someone with the Cloudflare account that hosts realmofoz.com and
-admin rights in the Discord server. Never commit or paste the bot token or
-the salt anywhere; they only go into Cloudflare.
+admin rights in the Discord server. Everything can be done from a phone
+(browser plus Termux); no clone of this repo is needed. Never commit or
+paste the bot token anywhere; it only goes into Cloudflare.
 
-1. **Database.** In a clone of this repo: `npm ci`, `npx wrangler login`,
-   then `npx wrangler d1 create realmdle`. Put the `database_id` it prints
-   into `wrangler.jsonc` (replacing `PASTE-ID-HERE`).
-2. **Discord application** at https://discord.com/developers/applications:
-   New Application "Realmdle". From General Information, copy the
-   **Application ID** and **Public Key**. Under Bot, turn **Public Bot**
-   off and **Reset Token** (keep the token safe for step 5).
-3. **Server and channel.** In Discord, User Settings, Advanced, Developer
-   Mode on. Create #realmdle. Copy the server id and the channel id. Put
-   the Public Key, server id and channel id into `vars` in `wrangler.jsonc`.
-4. **Deploy.** Add repository secrets `CLOUDFLARE_ACCOUNT_ID` and
-   `CLOUDFLARE_API_TOKEN` (a token with Account: Workers Scripts Edit, D1
-   Edit; Zone realmofoz.com: Workers Routes Edit, DNS Edit). Push to
-   `main`: CI tests, applies the migrations and deploys. Check that
-   https://realmdle.realmofoz.com shows the one-line note.
-5. **Secrets.** `openssl rand -base64 32`, then
-   `npx wrangler secret put PLAN_SALT` (paste it; never change it once
-   live) and `npx wrangler secret put DISCORD_BOT_TOKEN`.
-6. **Connect Discord.** In the developer portal, General Information, set
-   Interactions Endpoint URL to `https://realmdle.realmofoz.com/interactions`
-   and save. Discord sends a signed ping; if it saves, everything is wired.
-7. **Invite the bot.** OAuth2, URL Generator: scopes `bot` and
-   `applications.commands`; permissions View Channels, Send Messages,
-   Embed Links. Open the URL and pick the server. If #realmdle is private,
+1. **Cloudflare API token** (My Profile, API Tokens, Create Custom Token):
+   Account: Workers Scripts Edit, D1 Edit; Zone realmofoz.com: Workers
+   Routes Edit, DNS Edit. Also note the Account ID.
+2. **Database:** `npx wrangler d1 create realmdle` with that token in
+   `CLOUDFLARE_API_TOKEN`, or Storage & Databases, D1, Create in the
+   dashboard. Put the id into `wrangler.jsonc` (replacing `PASTE-ID-HERE`).
+3. **Discord application** at https://discord.com/developers/applications:
+   New Application "Realmdle". Under Bot, turn Public Bot off and Reset
+   Token (keep it for step 6). With Developer Mode on, create #realmdle and
+   copy the server and channel ids. Put the Application ID, Public Key,
+   server id and channel id into `vars` in `wrangler.jsonc`.
+4. **GitHub secrets** (Settings, Secrets and variables, Actions):
+   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Also Settings,
+   Actions, General, Workflow permissions: Read and write, so the daily
+   card refresh can commit.
+5. **Deploy:** push to `main` (or re-run the Deploy workflow). CI tests,
+   applies the migrations and deploys to `realmdle.realmofoz.com`.
+6. **Worker secrets:** `PLAN_SALT` (a long random string, never changed
+   once live) and `DISCORD_BOT_TOKEN`, with `npx wrangler secret put ...
+   --name realmdle` or in the dashboard (Workers, realmdle, Settings,
+   Variables and Secrets, type Secret).
+7. **Connect Discord:** Interactions Endpoint URL
+   `https://realmdle.realmofoz.com/interactions` in the developer portal.
+   Discord sends a signed ping when you save; if it saves, it is wired.
+8. **Invite the bot:**
+   `https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot+applications.commands&permissions=19456`
+   (View Channels, Send Messages, Embed Links). If #realmdle is private,
    give the bot's role access.
-8. **Register the command:**
-   ```sh
-   read -s DISCORD_BOT_TOKEN && export DISCORD_BOT_TOKEN
-   DISCORD_APPLICATION_ID=<application id> DISCORD_GUILD_ID=<server id> npm run register-commands
-   ```
-9. **Try it:** `/realmdle play` anywhere in the server. The first hourly
-   run posts "Realmdle #N is live" in #realmdle.
-
-For the daily card refresh to commit to `main`, set Settings, Actions,
-General, Workflow permissions to **Read and write**.
+9. **Register the command:** open https://realmdle.realmofoz.com. The
+   Worker registers `/realmdle` on the server whenever its definition
+   (`src/lib/commands.ts`) has changed, and checks hourly too. Then
+   `/realmdle play` in the server.
 
 ## Local development
 
@@ -143,7 +141,7 @@ General, Workflow permissions to **Read and write**.
 npm ci
 node scripts/discord-smoke.mjs keys > .dev.vars   # test key pair, fake server and channel ids
 npm run dev                                        # local D1 + Worker on :8787
-npm run smoke                                      # 25 checks, with a stand-in Discord API on :8799
+npm run smoke                                      # 26 checks, with a stand-in Discord API on :8799
 npm test && npm run typecheck
 ```
 

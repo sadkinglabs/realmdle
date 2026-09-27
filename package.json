@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
     "smoke": "node scripts/discord-smoke.mjs",
     "fetch-cards": "tsx scripts/fetch-cards.ts",
-    "register-commands": "node scripts/discord-commands.mjs"
+    "register-commands": "tsx scripts/discord-commands.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

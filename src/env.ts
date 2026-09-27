@@ -9,7 +9,9 @@ export type RealmdleEnv = {
   PLAN_SALT?: string;
   /** The Discord application's public key (hex), to verify that interactions really come from Discord. */
   DISCORD_PUBLIC_KEY?: string;
-  /** Bot token: posts results and the midnight message to the Realmdle channel. */
+  /** The Discord application id (public), to register the /realmdle command. */
+  DISCORD_APPLICATION_ID?: string;
+  /** Bot token: posts results and the midnight message, and registers the command. */
   DISCORD_BOT_TOKEN?: string;
   /** The one server Realmdle runs in; commands from anywhere else are refused. */
   DISCORD_GUILD_ID?: string;

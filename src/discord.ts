@@ -30,6 +30,7 @@ import {
   type Today,
   type Who,
 } from './lib/discord';
+import { COMMANDS } from './lib/commands';
 import { puzzleNumber, suggest } from './lib/engine';
 import { playerStats } from './lib/stats';
 import { channelReady, discordApi, type RealmdleEnv } from './env';
@@ -142,6 +143,27 @@ export async function announce(env: RealmdleEnv & { DB: D1Database }, today: num
     console.error('announcement failed', res.status, await res.text());
     await releaseAnnouncement(env.DB, today);
   }
+}
+
+/**
+ * Registers /realmdle on the server when src/lib/commands.ts has changed
+ * since the last registration, so a deploy is all it takes. Safe to call
+ * often: it compares a hash first and only writes on a change.
+ */
+export async function syncCommands(env: RealmdleEnv) {
+  if (!env.DB || !env.DISCORD_BOT_TOKEN || !env.DISCORD_APPLICATION_ID || !env.DISCORD_GUILD_ID) return;
+  const body = JSON.stringify(COMMANDS);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${env.DISCORD_APPLICATION_ID}:${env.DISCORD_GUILD_ID}:${body}`));
+  const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const current = await env.DB.prepare("SELECT value FROM meta WHERE key = 'commands'").first<{ value: string }>();
+  if (current?.value === hash) return;
+  const res = await fetch(`${discordApi(env)}/applications/${env.DISCORD_APPLICATION_ID}/guilds/${env.DISCORD_GUILD_ID}/commands`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', authorization: `Bot ${env.DISCORD_BOT_TOKEN}` },
+    body,
+  });
+  if (!res.ok) return console.error('registering /realmdle failed', res.status, await res.text());
+  await env.DB.prepare("INSERT INTO meta (key, value) VALUES ('commands', ?1) ON CONFLICT (key) DO UPDATE SET value = ?1").bind(hash).run();
 }
 
 // ---- the command ----
