@@ -14,13 +14,13 @@
   "vars": {
     // Public values from Discord (README.md, setup step 3). The two secrets
     // are set with `npx wrangler secret put`: DISCORD_BOT_TOKEN, PLAN_SALT.
-    "DISCORD_APPLICATION_ID": "",
-    "DISCORD_PUBLIC_KEY": "",
-    "DISCORD_GUILD_ID": "",
-    "DISCORD_CHANNEL_ID": ""
+    "DISCORD_APPLICATION_ID": "1553774253671841812",
+    "DISCORD_PUBLIC_KEY": "9cb9fab3dd11aa2c9d754f11b40c24ab73a5df65bb1d1609a13e4cb742010d90",
+    "DISCORD_GUILD_ID": "1454028745001402485",
+    "DISCORD_CHANNEL_ID": "1553775779530153994"
   },
   // Paste the id from `npx wrangler d1 create realmdle` (README.md, step 1).
-  "d1_databases": [{ "binding": "DB", "database_name": "realmdle", "database_id": "PASTE-ID-HERE", "migrations_dir": "migrations" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "realmdle", "database_id": "f0193a2d-5881-4fd1-8495-875ce08765b5", "migrations_dir": "migrations" }],
 
   "env": {
     // Local development only: `npm run dev`, with a local SQLite database.

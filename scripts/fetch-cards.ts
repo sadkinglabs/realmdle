@@ -20,7 +20,7 @@ import type { CardData } from '../src/lib/types';
 const BASE = 'https://api.kairosarchive.net/v3';
 const SOURCE = `${BASE}/registry.json`;
 // The registry asks automated clients to name themselves and a contact.
-const HEADERS = { 'user-agent': 'realmofoz-daily/1.0 (+https://realmofoz.com)', accept: 'application/json' };
+const HEADERS = { 'user-agent': 'realmdle/1.0 (+https://realmofoz.com; sorcerytcgaustralia@gmail.com)', accept: 'application/json' };
 const OUT = new URL('../data/cards.json', import.meta.url);
 /** Fewer cards than this means something upstream is wrong. */
 const MIN_CARDS = 500;

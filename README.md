@@ -90,7 +90,7 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
 served by KairosArchive at `api.kairosarchive.net/v3/registry.json`. The
 daily refresh workflow fetches the 80-byte `registry.json.sha256` and only
 downloads the 6 MB export when it changed, as the registry asks, sending a
-`User-Agent` that names the project. On a change it runs the tests,
+`User-Agent` that names the project and a contact email. On a change it runs the tests,
 commits `cards.json` to `main` and starts a deploy. To seed from a local
 clone of the registry:
 `npx tsx scripts/fetch-cards.ts path/to/sorcery-registry/export/registry.json`.
