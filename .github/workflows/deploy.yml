@@ -1,5 +1,5 @@
 # Tests every push; on main, also applies database migrations and deploys
-# the Worker to realmdle.realmofoz.com.
+# the Worker to realmdle.realmofoz.com (once the secrets below exist).
 #
 # Needs two repository secrets: CLOUDFLARE_API_TOKEN (Workers Scripts,
 # Workers Routes, D1 and DNS edit on the account / realmofoz.com zone) and
@@ -18,6 +18,9 @@ jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # the deploy steps wait until setup has added the Cloudflare secrets
+      CAN_DEPLOY: ${{ github.ref == 'refs/heads/main' && secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +44,7 @@ jobs:
         run: npx wrangler deploy --dry-run --outdir dist
 
       - name: Apply database migrations
-        if: github.ref == 'refs/heads/main'
+        if: env.CAN_DEPLOY == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -49,7 +52,7 @@ jobs:
           command: d1 migrations apply realmdle --remote
 
       - name: Deploy
-        if: github.ref == 'refs/heads/main'
+        if: env.CAN_DEPLOY == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
