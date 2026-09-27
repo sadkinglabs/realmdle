@@ -128,15 +128,17 @@ check('no guesses after finishing', r.body.data.content.includes('already finish
 r = await command(eve, 'stats');
 check('stats: private, with streak and solved %', r.body.data.flags === 64 && r.body.data.embeds[0].fields[1].value === '100%' && r.body.data.embeds[0].description.includes('Solved today'));
 
-r = await command(finn, 'stats', [{ type: 6, name: 'player', value: eve.id }], { users: { [eve.id]: eve } });
-check('someone else’s stats stay private until they join the leaderboard', r.body.data.content.includes('private'));
+const eveStats = () => command(finn, 'stats', [{ type: 6, name: 'player', value: eve.id }], { users: { [eve.id]: eve } });
+r = await eveStats();
+check('players are on the leaderboard by default, so others can see their stats', r.body.data.embeds?.[0].author.name === 'Eve · Realmdle stats');
+r = await command(eve, 'settings', [{ type: 5, name: 'leaderboard', value: false }]);
+const hidden = await eveStats();
+check('leaving the leaderboard makes them private', r.body.data.content.includes('left the leaderboard') && hidden.body.data.content.includes('private'));
 r = await command(eve, 'settings', [{ type: 5, name: 'leaderboard', value: true }]);
-check('joining the leaderboard', r.body.data.content.includes('You are on the leaderboard'));
-r = await command(finn, 'stats', [{ type: 6, name: 'player', value: eve.id }], { users: { [eve.id]: eve } });
-check('then others can see them', r.body.data.embeds?.[0].author.name === 'Eve · Realmdle stats');
+check('rejoining the leaderboard', r.body.data.content.includes('You are on the leaderboard') && (await eveStats()).body.data.embeds?.[0].author.name === 'Eve · Realmdle stats');
 
 r = await command(finn, 'leaderboard');
-check('leaderboard by streak lists Eve, with a tip for Finn to join', r.body.data.embeds[0].description.includes(`<@${eve.id}>`) && r.body.data.content.includes('not on the leaderboard'));
+check('leaderboard by streak lists Eve, and Finn needs no tip to join', r.body.data.embeds[0].description.includes(`<@${eve.id}>`) && !r.body.data.content);
 r = await command(finn, 'leaderboard', [{ type: 3, name: 'sort', value: 'solved' }]);
 check('leaderboard by solved % needs 5 games', r.body.data.embeds[0].title.includes('solved %') && !r.body.data.embeds[0].description.includes(eve.id));
 

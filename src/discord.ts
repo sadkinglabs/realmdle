@@ -15,7 +15,7 @@
 //   /realmdle guess card:<name>        the same as /guess
 //   /realmdle stats [player]           your stats, or a leaderboard player's
 //   /realmdle leaderboard [sort]       longest streaks, or solved %
-//   /realmdle settings leaderboard:<>  join or leave the leaderboard
+//   /realmdle settings leaderboard:<>  leave or rejoin the leaderboard (players are on it by default)
 //   /realmdle forget-me confirm:True   delete my player record and every play
 
 import type { Board } from './lib/board';
@@ -214,7 +214,7 @@ async function handle(env: Ready, ctx: ExecutionContext, interaction: Interactio
     const targetId = String(option(options, 'player') ?? who.id);
     const self = targetId === who.id;
     const target = await getPlayer(env.DB, targetId);
-    if (!self && (!target || !target.leaderboard)) return notice('That player keeps their Realmdle stats private.');
+    if (!self && (!target || !target.leaderboard)) return notice('That player has left the leaderboard, so their Realmdle stats are private.');
     if (!target) return notice('No games yet. Start with `/realmdle play`.');
     const b = await board(env.DB, today, answer, targetId);
     const resolved = interaction.data?.resolved?.users?.[targetId];
@@ -229,7 +229,7 @@ async function handle(env: Ready, ctx: ExecutionContext, interaction: Interactio
     const sort = (option(options, 'sort') === 'solved' ? 'solved' : 'streak') as LeaderboardSort;
     const ranked = rank(await leaderboardRows(env.DB, today), sort);
     const me = await getPlayer(env.DB, who.id);
-    const tip = me?.leaderboard ? undefined : 'You are not on the leaderboard. Join with `/realmdle settings leaderboard:True`.';
+    const tip = me?.leaderboard ? undefined : 'You have left the leaderboard. Rejoin with `/realmdle settings leaderboard:True`.';
     return privately([leaderboardEmbed(ranked, sort, who.id, today)], tip);
   }
 

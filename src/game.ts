@@ -84,11 +84,15 @@ type PlayRow = { puzzle: number; guesses: string; attempts: number; solved: numb
 
 const toPlay = (r: PlayRow): Play => ({ puzzle: r.puzzle, solved: r.solved === 1, attempts: r.attempts, finished: r.finished === 1 });
 
-/** Creates the player on first sign-in; afterwards refreshes their name and avatar. */
+/**
+ * Creates the player on first sign-in, on the leaderboard (playing means
+ * taking part; /realmdle settings takes them off); afterwards refreshes
+ * their name and avatar, leaving that choice alone.
+ */
 export async function upsertPlayer(db: D1Database, id: string, name: string, avatar: string | null = null): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO players (discord_id, display_name, avatar, created_at, seen_at) VALUES (?1, ?2, ?3, ?4, ?4)
+      `INSERT INTO players (discord_id, display_name, avatar, leaderboard, created_at, seen_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)
        ON CONFLICT (discord_id) DO UPDATE SET display_name = excluded.display_name, avatar = excluded.avatar, seen_at = excluded.seen_at`,
     )
     .bind(id, name, avatar, now())

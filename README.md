@@ -13,9 +13,9 @@ community's server, so the stats and leaderboard are that server's.
 /guess card:<name>                  the quick way to guess: autocomplete lists each card name once
 /realmdle play                      your board for today (also the Play button on the midnight post and every result)
 /realmdle guess card:<name>         the same as /guess
-/realmdle stats [player]            your stats; someone else's only if they joined the leaderboard
+/realmdle stats [player]            your stats, or anyone's still on the leaderboard
 /realmdle leaderboard [sort]        top ten by current streak, or by solved % (5+ games), plus your place
-/realmdle settings leaderboard:<>   join or leave the leaderboard
+/realmdle settings leaderboard:<>   leave (False) or rejoin (True) the leaderboard; players are on it by default
 /realmdle forget-me confirm:True    delete your record and every game
 ```
 
@@ -93,7 +93,8 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
   ten on the leaderboard (streak, solved %, games played) and a Play
   button. The `announcements` table makes it once per day.
 - **Privacy:** the database holds the Discord id, display name, avatar
-  hash and guesses, nothing else. The leaderboard is opt-in, and
+  hash and guesses, nothing else. Playing puts you on the server
+  leaderboard; `/realmdle settings leaderboard:False` takes you off, and
   `/realmdle forget-me` deletes everything for that player.
 
 ### Card data

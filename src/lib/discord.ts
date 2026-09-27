@@ -208,7 +208,7 @@ export function statsEmbed(who: Who, stats: PlayerStats, today: Today, self: boo
       { name: '​', value: '​', inline: true },
       { name: 'Guesses to solve', value: distributionBars(stats.distribution, today.state === 'won' ? today.guesses : null) },
     ],
-    footer: { text: self ? 'Only you can see this' : 'Shared on the leaderboard by choice' },
+    footer: { text: self ? 'Only you can see this' : 'On the server leaderboard' },
   };
 }
 
@@ -247,12 +247,12 @@ export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, vie
   const empty =
     sort === 'solved'
       ? `Nobody has played ${MIN_GAMES_FOR_PERCENT} games on the leaderboard yet.`
-      : 'Nobody has joined the leaderboard yet. Be the first: `/realmdle settings leaderboard:True`';
+      : 'Nobody has finished a Realmdle yet. Be the first: `/realmdle play`';
   return {
     color: COLOURS.gold,
     title: sort === 'streak' ? '🔥 Realmdle leaderboard · longest streaks' : `🎯 Realmdle leaderboard · solved % (${MIN_GAMES_FOR_PERCENT}+ games)`,
     description: top.length ? top.join('\n') : empty,
-    footer: { text: `After puzzle #${puzzle} · opt in or out with /realmdle settings` },
+    footer: { text: `After puzzle #${puzzle} · leave or rejoin with /realmdle settings` },
   };
 }
 
@@ -271,6 +271,6 @@ export function announcementEmbed(puzzle: number, yesterday: { card: Card; finis
     description: `${recap}\n\n${HOW_TO}`,
     thumbnail: yesterday?.card.image ? { url: yesterday.card.image } : undefined,
     fields: top.length ? [{ name: '🏆 Top 10 · streak · solved · played', value: top.join('\n') }] : undefined,
-    footer: { text: 'New card every midnight, Sydney time · join the top 10 with /realmdle settings' },
+    footer: { text: 'New card every midnight, Sydney time · play daily to climb the top 10' },
   };
 }
