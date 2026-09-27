@@ -99,11 +99,16 @@ describe('public result', () => {
     expect(e.fields).toEqual([
       { name: 'Streak', value: '🔥 2', inline: true },
       { name: 'Solved', value: '100% of 2', inline: true },
-      { name: 'Today', value: '24 of 31 solved', inline: true },
+      { name: 'Players today', value: '👥 24 of 31 solved it', inline: true },
     ]);
     const text = JSON.stringify(e);
     expect(text).not.toContain('Test Drake');
     expect(text).not.toContain('img.test');
+  });
+
+  it('leaves out the day’s count while the player is the only one to finish', () => {
+    const fields = resultEmbed({ ...finished, community: { finished: 1, solved: 1 } }, who).fields!;
+    expect(fields.map((f) => f.name)).toEqual(['Streak', 'Solved']);
   });
 
   it('marks a loss', () => {

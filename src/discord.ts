@@ -329,7 +329,7 @@ async function handle(env: Ready, ctx: ExecutionContext, interaction: Interactio
     return notice('Done. Your Realmdle stats and games are deleted. Playing again starts a fresh record.');
   }
 
-  return notice('Unknown command.');
+  return notice('That is not a Realmdle command. Try `/realmdle play`, `/realmdle guess`, `/realmdle stats` or `/realmdle leaderboard`.');
 }
 
 export async function handleInteraction(request: Request, env: RealmdleEnv, ctx: ExecutionContext): Promise<Response> {
@@ -341,6 +341,13 @@ export async function handleInteraction(request: Request, env: RealmdleEnv, ctx:
   if (!env.DB || !env.PLAN_SALT || !env.DISCORD_GUILD_ID) return notice('Realmdle is not set up yet.');
   // one server's game: nowhere else, not in DMs
   if (interaction.guild_id !== env.DISCORD_GUILD_ID) return notice('Realmdle is played in the Sorcery TCG Australia Discord server.');
-  return handle(env as Ready, ctx, interaction);
+  try {
+    return await handle(env as Ready, ctx, interaction);
+  } catch (err) {
+    // an answer Discord can show, rather than "the application did not respond"; the error goes to Workers Logs
+    console.error('interaction failed', interaction.type, JSON.stringify(interaction.data ?? {}), err);
+    if (interaction.type === 4) return reply({ type: 8, data: { choices: [] } });
+    return notice('Something went wrong on Realmdle’s side. Please try again in a moment.');
+  }
 }
 

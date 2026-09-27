@@ -139,7 +139,9 @@ export function resultEmbed(board: Board, who: Who): Embed {
     fields.push({ name: 'Streak', value: stats.currentStreak ? `🔥 ${stats.currentStreak}` : '0', inline: true });
     fields.push({ name: 'Solved', value: `${stats.winRate}% of ${stats.played}`, inline: true });
   }
-  fields.push({ name: 'Today', value: `${board.community.solved} of ${board.community.finished} solved`, inline: true });
+  // how the server is doing on today's card, once someone else has finished too
+  if (board.community.finished > 1)
+    fields.push({ name: 'Players today', value: `👥 ${board.community.solved} of ${board.community.finished} solved it`, inline: true });
   return {
     color: board.won ? (feedbacks.length <= 2 ? COLOURS.gold : COLOURS.win) : COLOURS.loss,
     author: { name: `${who.name} · Realmdle #${board.puzzle} · ${score}`, icon_url: avatarUrl(who) },
