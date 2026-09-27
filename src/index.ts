@@ -4,10 +4,11 @@
 //   POST /interactions   the /realmdle slash command (see discord.ts)
 //   GET  /               a one-line note; also registers /realmdle if its definition changed
 //
-// and an hourly cron plans the week ahead and posts the midnight message.
+// and an hourly cron plans the week ahead and posts the midnight message
+// (and, on Mondays, the recap of the week before).
 
 import { puzzleNumber } from './lib/engine';
-import { announce, handleInteraction, syncCommands } from './discord';
+import { announce, handleInteraction, recap, syncCommands } from './discord';
 import { gameReady, type RealmdleEnv } from './env';
 import { ensurePlanned } from './game';
 
@@ -38,7 +39,13 @@ export default {
   async scheduled(_event, env, ctx) {
     if (!gameReady(env)) return;
     const today = puzzleNumber(new Date());
-    ctx.waitUntil(ensurePlanned(env.DB, env.PLAN_SALT, today).then(() => announce(env, today)));
+    // on Mondays the week's recap goes first, so the day's post (with its Play button) is the latest
+    ctx.waitUntil(
+      ensurePlanned(env.DB, env.PLAN_SALT, today)
+        .then(() => recap(env, today))
+        .catch((err) => console.error('weekly recap', err))
+        .then(() => announce(env, today)),
+    );
     ctx.waitUntil(syncCommands(env));
   },
 } satisfies ExportedHandler<RealmdleEnv>;

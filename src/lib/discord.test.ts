@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Board } from './board';
-import { HOW_TO, announcementEmbed, boardEmbed, playButton, distributionBars, grid, leaderboardEmbed, rank, resultEmbed, statsEmbed, type RankedRow } from './discord';
+import { HOW_TO, announcementEmbed, boardEmbed, distributionBars, grid, hardestAndEasiest, leaderboardEmbed, playButton, rank, recapEmbed, resultEmbed, statsEmbed, type RankedRow, type WeekDay } from './discord';
 import { compare } from './engine';
 import { playerStats } from './stats';
 import type { Card } from './types';
@@ -172,5 +172,32 @@ describe('midnight post', () => {
     expect(lines).toHaveLength(10);
     expect(lines[0]).toBe('🥇 <@p0>  🔥 **12** · 90% · 20 played');
     expect(lines[9]).toBe('`10` <@p9>  🔥 **3** · 90% · 20 played');
+  });
+});
+
+describe('weekly recap', () => {
+  const day = (puzzle: number, c: typeof answer, finished: number, solved: number, average: number | null): WeekDay => ({ puzzle, card: c, finished, solved, average });
+  const days = [day(1, miss, 10, 9, 3.1), day(2, answer, 10, 3, 5.2), day(3, miss, 0, 0, null), day(4, answer, 10, 3, 4.0)];
+  const row = (id: string, currentStreak: number): RankedRow => ({ id, name: id, currentStreak, maxStreak: currentStreak, winRate: 100, played: 7, averageGuesses: 3 });
+
+  it('finds the hardest day (fewest solved, then most guesses) and the easiest', () => {
+    const { hardest, easiest } = hardestAndEasiest(days);
+    expect(hardest?.puzzle).toBe(2); // 3 of 10 like #4, but took more guesses
+    expect(easiest?.puzzle).toBe(1);
+    expect(hardestAndEasiest([days[0]])).toEqual({ hardest: days[0], easiest: null });
+  });
+
+  it('sums up the week, lists every card, the streaks and the perfect weeks', () => {
+    const e = recapEmbed({ from: 1, to: 7, players: 12, days, perfect: ['a'] }, [row('a', 7), row('b', 3), row('c', 0)]);
+    expect(e.title).toBe('📅 Realmdle week in review · #1–#7');
+    expect(e.description).toContain('👥 **12** players · **30** games · **50%** solved');
+    expect(e.description).toContain('`#2` **Test Drake** · Beta · 3/10 solved');
+    expect(e.description).toContain('`#3` **Test Imp** · Arthurian · nobody played');
+    expect(e.description).toContain('💀 **Hardest:** Test Drake (Beta), 3 of 10 solved');
+    expect(e.description).toContain('🍰 **Easiest:** Test Imp (Arthurian Legends), 90% solved, 3.1 guesses on average');
+    expect(e.description).toContain('🥇 <@a> **7** days\n🥈 <@b> **3** days');
+    expect(e.description).not.toContain('<@c>'); // no streak, not listed
+    expect(e.description).toContain('🎯 **Perfect week**, all 7 solved: <@a>');
+    expect(e.thumbnail?.url).toBe(answer.image);
   });
 });

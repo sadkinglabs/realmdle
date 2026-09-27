@@ -3,7 +3,7 @@
 
 import cardData from '../data/cards.json';
 import type { Board } from './lib/board';
-import type { RankedRow } from './lib/discord';
+import type { RankedRow, WeekReview } from './lib/discord';
 import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, compare, extendSchedule, looseName, puzzleDate, releaseGate, suggest } from './lib/engine';
 import { playerStats, type Play } from './lib/stats';
 import type { Card, CardData } from './lib/types';
@@ -128,6 +128,55 @@ export async function claimAnnouncement(db: D1Database, puzzle: number): Promise
 
 export async function releaseAnnouncement(db: D1Database, puzzle: number): Promise<void> {
   await db.prepare('DELETE FROM announcements WHERE puzzle = ?').bind(puzzle).run();
+}
+
+/** Claims a one-off job by name (such as a week's recap); false if another run already has. */
+export async function claimOnce(db: D1Database, key: string): Promise<boolean> {
+  const result = await db.prepare('INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)').bind(key, now()).run();
+  return result.meta.changes === 1;
+}
+
+export async function releaseOnce(db: D1Database, key: string): Promise<void> {
+  await db.prepare('DELETE FROM meta WHERE key = ?').bind(key).run();
+}
+
+/**
+ * A finished week, puzzles `from` to `to`, for the Monday recap: each day's
+ * card and numbers, how many played, and the leaderboard players who
+ * solved every day.
+ */
+export async function weekInReview(db: D1Database, from: number, to: number): Promise<WeekReview> {
+  const days = await db
+    .prepare(
+      `SELECT p.puzzle, p.card_id, COUNT(x.discord_id) AS finished, COALESCE(SUM(x.solved), 0) AS solved,
+              AVG(CASE WHEN x.solved = 1 THEN x.attempts END) AS average
+       FROM puzzles p LEFT JOIN plays x ON x.puzzle = p.puzzle AND x.finished = 1
+       WHERE p.puzzle BETWEEN ?1 AND ?2 GROUP BY p.puzzle ORDER BY p.puzzle`,
+    )
+    .bind(from, to)
+    .all<{ puzzle: number; card_id: string; finished: number; solved: number; average: number | null }>();
+  const players = await db
+    .prepare('SELECT COUNT(DISTINCT discord_id) AS n FROM plays WHERE puzzle BETWEEN ?1 AND ?2 AND finished = 1')
+    .bind(from, to)
+    .first<{ n: number }>();
+  const perfect = await db
+    .prepare(
+      `SELECT x.discord_id FROM plays x JOIN players p ON p.discord_id = x.discord_id
+       WHERE p.leaderboard = 1 AND x.puzzle BETWEEN ?1 AND ?2 AND x.solved = 1
+       GROUP BY x.discord_id HAVING COUNT(*) = ?3 ORDER BY MIN(x.finished_at)`,
+    )
+    .bind(from, to, to - from + 1)
+    .all<{ discord_id: string }>();
+  return {
+    from,
+    to,
+    players: players?.n ?? 0,
+    days: days.results.flatMap((d) => {
+      const card = cardsById.get(d.card_id);
+      return card ? [{ puzzle: d.puzzle, card, finished: d.finished, solved: d.solved, average: d.average === null ? null : Math.round(d.average * 10) / 10 }] : [];
+    }),
+    perfect: perfect.results.map((r) => r.discord_id),
+  };
 }
 
 /** Everything a player's board shows for one puzzle (`playerId` null for nobody in particular). */

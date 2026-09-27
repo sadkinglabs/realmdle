@@ -274,3 +274,52 @@ export function announcementEmbed(puzzle: number, yesterday: { card: Card; finis
     footer: { text: 'New card every midnight, Sydney time · play daily to climb the top 10' },
   };
 }
+
+export type WeekDay = { puzzle: number; card: Card; finished: number; solved: number; average: number | null };
+export type WeekReview = { from: number; to: number; players: number; days: WeekDay[]; perfect: string[] };
+
+const percent = (solved: number, finished: number) => Math.round((solved / finished) * 100);
+
+/** The day fewest players solved (then the one that took most guesses), and the day most did. */
+export function hardestAndEasiest(days: WeekDay[]): { hardest: WeekDay | null; easiest: WeekDay | null } {
+  const played = days.filter((d) => d.finished > 0);
+  const rate = (d: WeekDay) => d.solved / d.finished;
+  const guesses = (d: WeekDay) => d.average ?? 7;
+  const byHardest = [...played].sort((a, b) => rate(a) - rate(b) || guesses(b) - guesses(a) || b.finished - a.finished);
+  const hardest = byHardest[0] ?? null;
+  const easiest = byHardest.length > 1 ? byHardest[byHardest.length - 1] : null;
+  return { hardest, easiest: easiest && rate(easiest) > rate(hardest!) ? easiest : null };
+}
+
+/**
+ * The Monday recap of the week just finished: its totals, each day's card
+ * (all revealed by now), the hardest and easiest card, the longest streaks
+ * and anyone who solved all seven. Lines rather than fields, for phones.
+ */
+export function recapEmbed(week: WeekReview, ranked: RankedRow[]): Embed {
+  const games = week.days.reduce((n, d) => n + d.finished, 0);
+  const solves = week.days.reduce((n, d) => n + d.solved, 0);
+  const { hardest, easiest } = hardestAndEasiest(week.days);
+  const dayLine = (d: WeekDay) =>
+    `\`#${d.puzzle}\` **${d.card.name}** · ${shortSet(d.card.set)} · ${d.finished ? `${d.solved}/${d.finished} solved` : 'nobody played'}`;
+  const streaks = ranked.filter((r) => r.currentStreak > 0).slice(0, 5);
+  const parts = [
+    `👥 **${week.players}** ${week.players === 1 ? 'player' : 'players'} · **${games}** games · **${games ? percent(solves, games) : 0}%** solved`,
+    `**The week's cards**\n${week.days.map(dayLine).join('\n')}`,
+    [
+      hardest ? `💀 **Hardest:** ${hardest.card.name} (${hardest.card.set}), ${hardest.solved} of ${hardest.finished} solved` : '',
+      easiest ? `🍰 **Easiest:** ${easiest.card.name} (${easiest.card.set}), ${percent(easiest.solved, easiest.finished)}% solved${easiest.average ? `, ${easiest.average} guesses on average` : ''}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    streaks.length ? `🔥 **Longest streaks**\n${streaks.map((r, i) => `${MEDALS[i] ?? '🏅'} <@${r.id}> **${r.currentStreak}** days`).join('\n')}` : '',
+    week.perfect.length ? `🎯 **Perfect week**, all ${week.to - week.from + 1} solved: ${week.perfect.map((id) => `<@${id}>`).join(' ')}` : '',
+  ];
+  return {
+    color: COLOURS.gold,
+    title: `📅 Realmdle week in review · #${week.from}–#${week.to}`,
+    description: parts.filter(Boolean).join('\n\n'),
+    thumbnail: hardest?.card.image ? { url: hardest.card.image } : undefined,
+    footer: { text: 'A new week starts now · every streak begins with one card' },
+  };
+}

@@ -26,6 +26,7 @@ import {
   leaderboardEmbed,
   playButton,
   rank,
+  recapEmbed,
   resultEmbed,
   statsEmbed,
   type Embed,
@@ -42,6 +43,7 @@ import {
   board,
   cardsById,
   claimAnnouncement,
+  claimOnce,
   dayCounts,
   deletePlayer,
   ensurePlanned,
@@ -53,8 +55,10 @@ import {
   leaderboardRows,
   pickCard,
   releaseAnnouncement,
+  releaseOnce,
   setLeaderboard,
   upsertPlayer,
+  weekInReview,
 } from './game';
 
 type Ready = RealmdleEnv & { DB: D1Database; PLAN_SALT: string; DISCORD_PUBLIC_KEY: string; DISCORD_GUILD_ID: string };
@@ -139,6 +143,34 @@ export async function announce(env: RealmdleEnv & { DB: D1Database }, today: num
   if (!res.ok) {
     console.error('announcement failed', res.status, await res.text());
     await releaseAnnouncement(env.DB, today);
+  }
+}
+
+/** Puzzles run Monday to Sunday: #1 was a Monday, so a week is #1–#7, #8–#14 and so on. */
+export const WEEK = 7;
+
+/**
+ * The Monday recap of the week just finished, once per week, posted just
+ * before that day's "is live" post so the Play button stays the latest.
+ * Skipped for a week nobody played.
+ */
+export async function recap(env: RealmdleEnv & { DB: D1Database }, today: number) {
+  if (!channelReady(env) || today <= WEEK || (today - 1) % WEEK !== 0) return;
+  const from = today - WEEK;
+  const key = `recap:${from}`;
+  if (!(await claimOnce(env.DB, key))) return;
+  const week = await weekInReview(env.DB, from, today - 1);
+  if (!week.players) return;
+  const ranked = rank(await leaderboardRows(env.DB, today), 'streak');
+  const res = await fetch(`${discordApi(env)}/channels/${env.DISCORD_CHANNEL_ID}/messages`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bot ${env.DISCORD_BOT_TOKEN}` },
+    body: JSON.stringify({ embeds: [recapEmbed(week, ranked)], ...quiet }),
+  });
+  // let the next hourly run try again
+  if (!res.ok) {
+    console.error('weekly recap failed', res.status, await res.text());
+    await releaseOnce(env.DB, key);
   }
 }
 

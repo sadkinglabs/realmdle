@@ -92,6 +92,12 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
   of the Sydney day: yesterday's card and numbers, how to play, the top
   ten on the leaderboard (streak, solved %, games played) and a Play
   button. The `announcements` table makes it once per day.
+- **The weekly recap** goes out on Mondays, just before that day's post:
+  the week just finished (Monday to Sunday; #1 was a Monday) with its
+  totals, every day's card and how many solved it, the hardest and
+  easiest card, the five longest streaks and anyone who solved all
+  seven. A `recap:<first puzzle>` row in `meta` makes it once per week;
+  a week nobody played is skipped.
 - **Privacy:** the database holds the Discord id, display name, avatar
   hash and guesses, nothing else. Playing puts you on the server
   leaderboard; `/realmdle settings leaderboard:False` takes you off, and
