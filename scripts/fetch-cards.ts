@@ -3,7 +3,7 @@
 // file: it is what players guess from and what the planner picks answers
 // from (answers themselves live in the database, never in the repo).
 //
-// Run daily by .github/workflows/refresh-cards.yml, which commits any
+// Run weekly by .github/workflows/refresh-cards.yml, which commits any
 // change. The registry changes a few times a year and asks clients not to
 // re-download the 6 MB export needlessly, so this first fetches its 80-byte
 // checksum and only downloads the export when that differs from the one

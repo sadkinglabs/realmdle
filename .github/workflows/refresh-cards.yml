@@ -1,6 +1,6 @@
 # Keeps the Realmdle card pool current.
 #
-# Once a day it asks the Sorcery Card Registry whether a new release exists
+# Once a week it asks the Sorcery Card Registry whether a new release exists
 # (an 80-byte checksum; the 6 MB export is only downloaded when it changed),
 # runs the tests and commits data/cards.json to main, then deploys so
 # the Worker bundles the new cards. New cards become answers through the
@@ -9,8 +9,9 @@ name: Refresh Realmdle cards
 
 on:
   schedule:
-    # 16:23 UTC is 02:23 or 03:23 in Sydney, after the daily puzzle turns over
-    - cron: '23 16 * * *'
+    # Sundays 16:23 UTC: early Monday in Sydney (02:23 or 03:23), after the puzzle turns over.
+    # Run it by hand (Actions, Refresh Realmdle cards, Run workflow) to pick up a release sooner.
+    - cron: '23 16 * * 0'
   workflow_dispatch:
 
 permissions:

@@ -67,7 +67,7 @@ src/discord.ts        signature check, the commands, posting results and the mid
 src/game.ts           planning, scoring guesses, stats and leaderboard queries
 src/env.ts            the bindings and secrets, all optional until set up
 src/lib/              rules and planner (engine), stats, embed designs (discord), card adapter
-data/cards.json       the card pool, refreshed daily by .github/workflows/refresh-cards.yml
+data/cards.json       the card pool, refreshed weekly by .github/workflows/refresh-cards.yml
 migrations/           D1 schema: puzzles, players, plays, announcements
 scripts/              fetch-cards (card pool), discord-commands (register /realmdle by hand), discord-smoke (rehearsal)
 ```
@@ -93,7 +93,7 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
 
 `data/cards.json` comes from the [Sorcery Card Registry](https://github.com/sadkinglabs/sorcery-registry),
 served by KairosArchive at `api.kairosarchive.net/v3/registry.json`. The
-daily refresh workflow fetches the 80-byte `registry.json.sha256` and only
+weekly refresh workflow (Mondays, Sydney time) fetches the 80-byte `registry.json.sha256` and only
 downloads the 6 MB export when it changed, as the registry asks, sending a
 `User-Agent` that names the project and a contact email. On a change it runs the tests,
 commits `cards.json` to `main` and starts a deploy. To seed from a local
@@ -120,7 +120,7 @@ paste the bot token anywhere; it only goes into Cloudflare.
    server id and channel id into `vars` in `wrangler.jsonc`.
 4. **GitHub secrets** (Settings, Secrets and variables, Actions):
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Also Settings,
-   Actions, General, Workflow permissions: Read and write, so the daily
+   Actions, General, Workflow permissions: Read and write, so the weekly
    card refresh can commit.
 5. **Deploy:** push to `main` (or re-run the Deploy workflow). CI tests,
    applies the migrations and deploys to `realmdle.realmofoz.com`.
