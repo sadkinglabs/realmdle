@@ -23,30 +23,47 @@ export type Embed = {
   timestamp?: string;
 };
 
-export const COLOURS = { win: 0x5f8f55, loss: 0x8a6f5a, neutral: 0xe07a2c, gold: 0xc9a24f } as const;
+export const COLOURS = { win: 0x5f8f55, loss: 0x8a6f5a, neutral: 0xe07a2c, gold: 0xc9a24f, warning: 0xc8423b } as const;
 const SQUARE = { correct: '🟩', partial: '🟨', wrong: '⬛' } as const;
 const ARROW = { up: '▲', down: '▼' } as const;
 const SHORT_SET: Record<string, string> = { 'Arthurian Legends': 'Arthurian' };
 const MEDALS = ['🥇', '🥈', '🥉'];
 
+/** What each clue is called on the board, in Sorcery's own words. */
+export const LABELS: Record<Column, string> = { elements: 'Threshold', type: 'Type', cost: 'Mana', power: 'Power', rarity: 'Rarity', set: 'Set' };
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
 const shortSet = (set: string) => SHORT_SET[set] ?? set;
 
-function cell(card: Card, column: Column, clue: Clue): string {
-  const raw =
-    column === 'elements'
-      ? formatElements(card.elements)
-      : column === 'cost' || column === 'power'
-        ? (card[column] ?? 'None')
-        : column === 'set'
-          ? shortSet(card.set)
-          : (card[column] ?? 'None');
-  return `${SQUARE[clue.verdict]} ${raw}${clue.direction ? ARROW[clue.direction] : ''}`;
+/** A puzzle's Sydney date (YYYY-MM-DD) as "Monday 28 September 2026". */
+export function longDate(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return `${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTHS[m - 1]} ${y}`;
 }
 
-/** One guess: the card, then its six clues on one line. */
-export function guessLines(card: Card, feedback: Feedback): string {
-  return `**${card.name}** · ${card.set}\n${COLUMNS.map((c) => cell(card, c, feedback[c])).join('  ')}`;
+function cell(card: Card, column: Column, clue: Clue): string {
+  const raw = column === 'elements' ? formatElements(card.elements) : column === 'set' ? shortSet(card.set) : (card[column] ?? 'None');
+  return `${SQUARE[clue.verdict]} ${LABELS[column]} **${raw}**${clue.direction ? ARROW[clue.direction] : ''}`;
 }
+
+/** One guess: the card, then its six labelled clues on two lines of three. */
+export function guessLines(card: Card, feedback: Feedback): string {
+  const cells = COLUMNS.map((c) => cell(card, c, feedback[c]));
+  return `**${card.name}** · ${card.set}\n${cells.slice(0, 3).join(' · ')}\n${cells.slice(3).join(' · ')}`;
+}
+
+/** A cheer for the finish, by how many guesses it took; index 0 is a loss. */
+const CHEERS = [
+  '💀 Out of guesses. Better luck tomorrow!',
+  '🤯🏆 Got it in one! Pure sorcery.',
+  '🔥🔥 Two guesses. Scary good!',
+  '🎉✨ Three guesses. Brilliant!',
+  '🎉 Four guesses. Nicely done!',
+  '👏 Five guesses. Solid!',
+  '😅🎉 Phew, on the very last guess!',
+];
+export const cheer = (won: boolean, guesses: number) => CHEERS[won ? guesses : 0];
 
 /** The spoiler-free grid: squares only. */
 export function grid(feedbacks: Feedback[]): string {
@@ -65,24 +82,38 @@ export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
   if (board.over && answer) {
     return {
       color: board.won ? COLOURS.win : COLOURS.loss,
-      title: board.won ? `Solved in ${rows.length}: ${answer.name}` : `Out of guesses. It was ${answer.name}`,
-      description: `${answer.type}${answer.subtypes.length ? `, ${answer.subtypes.join(' ')}` : ''} · ${answer.set}\n\n${lines}`,
+      title: board.won ? `${rows.length <= 2 ? '🏆' : '🎉'} Solved in ${rows.length}: ${answer.name}` : `Out of guesses. It was ${answer.name}`,
+      description: `**${cheer(board.won, rows.length)}**\n${answer.type}${answer.subtypes.length ? `, ${answer.subtypes.join(' ')}` : ''} · ${answer.set}\n\n${lines}`,
       image: answer.image ? { url: answer.image } : undefined,
       footer: { text: `Realmdle #${board.puzzle} · your result has been posted for the server` },
     };
   }
 
   const fields: Embed['fields'] = [];
-  if (board.hint) fields.push({ name: 'Last guess, a hint', value: board.hint.length ? `The card is a **${board.hint.join(' ')}**.` : 'The card has no subtype.' });
+  if (board.hint)
+    fields.push({ name: '⚠️ Last guess! Here is a hint ⚠️', value: board.hint.length ? `💡 The card is a **${board.hint.join(' ')}**.` : '💡 The card has no subtype.' });
+  const left = MAX_GUESSES - rows.length;
   return {
-    color: COLOURS.neutral,
-    title: `Realmdle #${board.puzzle} · guess ${rows.length + 1} of ${MAX_GUESSES}`,
+    color: board.hint ? COLOURS.warning : COLOURS.neutral,
+    title: rows.length
+      ? `Realmdle #${board.puzzle} · ${left === 1 ? '⚠️ last guess' : `${left} guesses left`}`
+      : `Welcome to Realmdle #${board.puzzle} - ${longDate(board.date)}`,
     description: rows.length
       ? lines
-      : 'Guess the Sorcery card of the day in six tries.\nUse `/realmdle guess` and start typing a card name.\n\n🟩 match  🟨 close  ⬛ no match  ▲▼ the answer is higher or lower, rarer, or newer',
+      : 'Guess the Sorcery card of the day in six tries. A new card arrives at midnight, Sydney time.\n' +
+        'Press **Guess** and type a card name, or use `/realmdle guess` to pick from suggestions as you type.\n\n' +
+        `Each guess shows its ${COLUMNS.map((c) => LABELS[c]).join(', ')}:\n` +
+        '🟩 match  🟨 close  ⬛ no match\n▲▼ the answer has more or less mana or power, is rarer or more common, or is from a newer or older set',
     fields,
-    footer: { text: 'Only you can see this · /realmdle guess' },
+    footer: { text: 'Only you can see this · Guess, or /realmdle guess' },
   };
+}
+
+/** The Guess button under an unfinished board. Its id carries the puzzle, so an old board cannot guess on a new day. */
+export const GUESS_BUTTON = 'realmdle:guess';
+export function boardButtons(board: Board) {
+  if (board.over) return [];
+  return [{ type: 1, components: [{ type: 2, style: 1, label: 'Guess', emoji: { name: '✏️' }, custom_id: `${GUESS_BUTTON}:${board.puzzle}` }] }];
 }
 
 export type Who = { id: string; name: string; avatar: string | null };
@@ -100,9 +131,9 @@ export function resultEmbed(board: Board, who: Who): Embed {
   const score = board.won ? `${feedbacks.length}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`;
   const headline = board.won
     ? feedbacks.length === 1
-      ? 'got it in one!'
-      : `solved it in ${feedbacks.length}.`
-    : 'ran out of guesses.';
+      ? 'got it in one! 🤯🏆'
+      : `solved it in ${feedbacks.length}. ${cheer(true, feedbacks.length).split(' ')[0]}`
+    : 'ran out of guesses. 💀';
   const fields: Embed['fields'] = [];
   if (stats) {
     fields.push({ name: 'Streak', value: stats.currentStreak ? `🔥 ${stats.currentStreak}` : '0', inline: true });

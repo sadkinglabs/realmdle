@@ -18,6 +18,11 @@ community's server, so the stats and leaderboard are that server's.
 /realmdle forget-me confirm:True    delete your record and every game
 ```
 
+The board also has a **Guess** button, so players need not type the
+command each time: it opens a box for a card name, guesses the card if
+only one matches, and otherwise offers a menu of the matches (such as the
+same card in Alpha and Beta). The game stays on one private message.
+
 ## Rules
 
 - **Clues:** element (match, or close if one element is shared), type,
@@ -141,7 +146,7 @@ paste the bot token anywhere; it only goes into Cloudflare.
 npm ci
 node scripts/discord-smoke.mjs keys > .dev.vars   # test key pair, fake server and channel ids
 npm run dev                                        # local D1 + Worker on :8787
-npm run smoke                                      # 26 checks, with a stand-in Discord API on :8799
+npm run smoke                                      # 32 checks, with a stand-in Discord API on :8799
 npm test && npm run typecheck
 ```
 

@@ -6,6 +6,7 @@
 //   node scripts/discord-smoke.mjs         # signs interactions like Discord does
 //
 // Checks: signatures, the one-server lock, private boards, autocomplete,
+// the Guess button with its form and pick menu,
 // the hint, the public result in the Realmdle channel (never naming the
 // card), stats privacy, the leaderboard, the Play button, deleting your
 // data and the once-a-day midnight post.
@@ -85,7 +86,7 @@ r = await interact({ type: 1 });
 check('answers Discord’s ping', r.body.type === 1);
 
 r = opening;
-check('play: a private board, guess 1 of 6', r.body.data.flags === 64 && r.body.data.embeds[0].title === `Realmdle #${today} · guess 1 of 6`);
+check('play: a private welcome board with a Guess button', r.body.data.flags === 64 && r.body.data.embeds[0].title.startsWith(`Welcome to Realmdle #${today} - `) && r.body.data.components[0].components[0].custom_id === `realmdle:guess:${today}`);
 r = await interact({ type: 2, member: { user: eve }, data: { name: 'realmdle', options: [{ type: 1, name: 'play' }] } }, { guild: '999' });
 check('refuses to play in any other server', r.body.data.content.includes('Sorcery TCG Australia'));
 r = await interact({ type: 2, user: eve, data: { name: 'realmdle', options: [{ type: 1, name: 'play' }] } }, { guild: null }); // a DM has no server
@@ -98,15 +99,32 @@ check('autocomplete offers each set separately', r.body.type === 8 && names.incl
 r = await guess(eve, 'Apprentice Wizard');
 check('a typed name in two sets asks which one', r.body.data.content.includes('Alpha and Beta'));
 
-for (let i = 0; i < 5; i++) r = await guess(eve, wrong[i].id);
+// the Guess button: a form to type into, then a menu when the name is in two sets
+const button = (u, id, values) => interact({ type: 3, member: { user: u }, data: { custom_id: id, component_type: values ? 3 : 2, values } });
+const form = (u, text) => interact({ type: 5, member: { user: u }, data: { custom_id: `realmdle:guess-form:${today}`, components: [{ type: 1, components: [{ type: 4, custom_id: 'card', value: text }] }] } });
+r = await button(eve, `realmdle:guess:${today}`);
+check('the Guess button opens a form', r.body.type === 9 && r.body.data.custom_id === `realmdle:guess-form:${today}`);
+r = await form(eve, 'apprentice wizard');
+const menu = r.body.data.components?.[0].components[0];
+check('a name in two sets redraws the board with a menu to pick from', r.body.type === 7 && r.body.data.content.includes('Which card') && menu?.options.length === 2, JSON.stringify(menu?.options.map((o) => o.label)));
+r = await button(eve, `realmdle:pick:${today}`, [wrong[0].id]);
+check('picking from the menu makes the guess on the same message', r.body.type === 7 && r.body.data.embeds[0].title === `Realmdle #${today} · 5 guesses left`);
+r = await form(eve, wrong[1].name.toUpperCase());
+check('one match in the form is guessed straight away', r.body.type === 7 && r.body.data.embeds[0].title === `Realmdle #${today} · 4 guesses left`);
+r = await form(eve, 'zzzz no such card');
+check('no match says so and keeps the board', r.body.type === 7 && r.body.data.content.includes('No card matches') && r.body.data.embeds[0].title.includes('4 guesses left'));
+r = await button(eve, `realmdle:guess:${today - 1}`);
+check('a button from an old day shows today’s board instead', r.body.type === 7 && r.body.data.content.includes('new day'));
+
+for (let i = 2; i < 5; i++) r = await guess(eve, wrong[i].id);
 const board5 = JSON.stringify(r.body.data);
-check('five wrong guesses: private board with the hint, no answer', r.body.data.flags === 64 && board5.includes('Last guess, a hint') && !board5.includes(answer.name));
+check('five wrong guesses: private board with the hint, no answer', r.body.data.flags === 64 && board5.includes('Last guess! Here is a hint') && r.body.data.embeds[0].title.includes('last guess') && !board5.includes(answer.name));
 
 r = await interact({ type: 4, member: { user: eve }, data: { name: 'realmdle', options: [{ type: 1, name: 'guess', options: [{ type: 3, name: 'card', value: wrong[0].name, focused: true }] }] } });
 check('autocomplete leaves out cards already guessed', !r.body.data.choices.some((c) => c.value === wrong[0].id));
 
 r = await guess(eve, ANSWER);
-check('solving it: the private board reveals the card and points to the channel', r.body.data.flags === 64 && r.body.data.embeds[0].title === `Solved in 6: ${answer.name}` && r.body.data.content.includes('<#555>'));
+check('solving it: the private board reveals the card and points to the channel', r.body.data.flags === 64 && r.body.data.embeds[0].title === `🎉 Solved in 6: ${answer.name}` && r.body.data.content.includes('<#555>'));
 const result = await waitForPost(1);
 const resultText = JSON.stringify(result?.body);
 check('then the bot posts the result publicly in the Realmdle channel', result?.path === '/channels/555/messages' && result.auth === 'Bot test-token' && result.body.flags === undefined && result.body.embeds[0].author.name === `Eve · Realmdle #${today} · 6/6`);
@@ -132,7 +150,7 @@ r = await command(finn, 'leaderboard', [{ type: 3, name: 'sort', value: 'solved'
 check('leaderboard by solved % needs 5 games', r.body.data.embeds[0].title.includes('solved %') && !r.body.data.embeds[0].description.includes(eve.id));
 
 r = await interact({ type: 3, member: { user: finn }, data: { custom_id: 'realmdle:play' } });
-check('the Play button opens Finn’s private board', r.body.data.flags === 64 && r.body.data.embeds[0].title.includes('guess 1 of 6'));
+check('the Play button opens Finn’s private board', r.body.data.flags === 64 && r.body.data.embeds[0].title.startsWith('Welcome to Realmdle'));
 
 r = await guess(finn, ANSWER);
 const finnPost = await waitForPost(2);

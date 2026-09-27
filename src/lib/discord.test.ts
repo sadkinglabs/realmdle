@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Board } from './board';
-import { announcementEmbed, boardEmbed, distributionBars, grid, leaderboardEmbed, rank, resultEmbed, statsEmbed, type RankedRow } from './discord';
+import { announcementEmbed, boardButtons, boardEmbed, distributionBars, grid, leaderboardEmbed, rank, resultEmbed, statsEmbed, type RankedRow } from './discord';
 import { compare } from './engine';
 import { playerStats } from './stats';
 import type { Card } from './types';
@@ -40,22 +40,42 @@ const board = (over: Partial<Board>): Board => ({
 describe('private board', () => {
   it('shows every guess with its six clues, never the answer while playing', () => {
     const e = boardEmbed(board({ guesses: [{ id: 'miss', feedback: compare(miss, answer, SETS) }] }), cards);
-    expect(e.title).toBe('Realmdle #12 · guess 2 of 6');
+    expect(e.title).toBe('Realmdle #12 · 5 guesses left');
     expect(e.description).toContain('**Test Imp** · Arthurian Legends');
-    expect(e.description).toContain('🟨 Fire'); // shares an element
-    expect(e.description).toContain('🟨 4▲'); // cost close, answer higher
-    expect(e.description).toContain('Arthurian▼');
+    expect(e.description).toContain('🟨 Threshold **Fire**'); // shares an element
+    expect(e.description).toContain('🟨 Mana **4**▲'); // cost close, answer higher
+    expect(e.description).toContain('Set **Arthurian**▼');
     expect(JSON.stringify(e)).not.toContain('Test Drake');
   });
 
-  it('adds the hint on the last guess', () => {
-    const e = boardEmbed(board({ hint: ['Dragon'] }), cards);
-    expect(e.fields?.[0]).toEqual({ name: 'Last guess, a hint', value: 'The card is a **Dragon**.' });
+  it('welcomes the player with the puzzle and its Sydney date', () => {
+    const e = boardEmbed(board({}), cards);
+    expect(e.title).toBe('Welcome to Realmdle #12 - Friday 9 October 2026');
+    expect(e.description).toContain('Threshold, Type, Mana, Power, Rarity, Set');
+  });
+
+  it('labels each clue, three to a line', () => {
+    const lines = boardEmbed(board({ guesses: [{ id: 'miss', feedback: compare(miss, answer, SETS) }] }), cards).description!.split('\n');
+    expect(lines[1]).toBe('🟨 Threshold **Fire** · 🟩 Type **Minion** · 🟨 Mana **4**▲');
+    expect(lines[2]).toBe('🟨 Power **3**▲ · ⬛ Rarity **Ordinary**▲ · ⬛ Set **Arthurian**▼');
+  });
+
+  it('warns about the last guess and adds the hint', () => {
+    const miss5 = Array.from({ length: 5 }, () => ({ id: 'miss', feedback: compare(miss, answer, SETS) }));
+    const e = boardEmbed(board({ hint: ['Dragon'], guesses: miss5 }), cards);
+    expect(e.title).toBe('Realmdle #12 · ⚠️ last guess');
+    expect(e.fields?.[0]).toEqual({ name: '⚠️ Last guess! Here is a hint ⚠️', value: '💡 The card is a **Dragon**.' });
+  });
+
+  it('offers a Guess button only while playing, tied to the puzzle', () => {
+    expect(boardButtons(board({}))[0].components[0].custom_id).toBe('realmdle:guess:12');
+    expect(boardButtons(board({ over: true }))).toEqual([]);
   });
 
   it('reveals the card with its art once over', () => {
     const e = boardEmbed(board({ over: true, won: true, answer: 'ans', guesses: [{ id: 'ans', feedback: compare(answer, answer, SETS) }] }), cards);
-    expect(e.title).toBe('Solved in 1: Test Drake');
+    expect(e.title).toBe('🏆 Solved in 1: Test Drake');
+    expect(e.description).toContain('Got it in one!');
     expect(e.image?.url).toBe(answer.image);
   });
 });
@@ -75,7 +95,7 @@ describe('public result', () => {
   it('shows the squares, score, streak and the day, but never the card', () => {
     const e = resultEmbed(finished, who);
     expect(e.author?.name).toBe('Bob · Realmdle #12 · 2/6');
-    expect(e.description).toBe(`<@${who.id}> solved it in 2.\n\n${grid(finished.guesses.map((g) => g.feedback))}`);
+    expect(e.description).toBe(`<@${who.id}> solved it in 2. 🔥🔥\n\n${grid(finished.guesses.map((g) => g.feedback))}`);
     expect(e.fields).toEqual([
       { name: 'Streak', value: '🔥 2', inline: true },
       { name: 'Solved', value: '100% of 2', inline: true },

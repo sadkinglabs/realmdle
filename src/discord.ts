@@ -10,8 +10,13 @@
 // (only the player sees it); the one public message is the result, posted
 // to the Realmdle channel when they finish.
 //
-//   /realmdle play                     your board for today
+//   /realmdle play                     your board for today, with a Guess button
 //   /realmdle guess card:<name>        autocomplete from the card pool
+//
+// The Guess button opens a form to type a name into; one match is guessed
+// straight away, and a name in several sets (or a part of one) comes back
+// as a menu to pick from. Both redraw the same private board.
+//
 //   /realmdle stats [player]           your stats, or a leaderboard player's
 //   /realmdle leaderboard [sort]       longest streaks, or solved %
 //   /realmdle settings leaderboard:<>  join or leave the leaderboard
@@ -19,7 +24,9 @@
 
 import type { Board } from './lib/board';
 import {
+  GUESS_BUTTON,
   announcementEmbed,
+  boardButtons,
   boardEmbed,
   leaderboardEmbed,
   rank,
@@ -33,6 +40,7 @@ import {
 import { COMMANDS } from './lib/commands';
 import { puzzleNumber, suggest } from './lib/engine';
 import { playerStats } from './lib/stats';
+import type { Card } from './lib/types';
 import { channelReady, discordApi, type RealmdleEnv } from './env';
 import {
   answerFor,
@@ -55,6 +63,9 @@ type Ready = RealmdleEnv & { DB: D1Database; PLAN_SALT: string; DISCORD_PUBLIC_K
 
 const EPHEMERAL = 64;
 const PLAY_BUTTON = 'realmdle:play';
+// the Guess button opens GUESS_FORM; a name in several sets comes back as a PICK_MENU
+const GUESS_FORM = 'realmdle:guess-form';
+const PICK_MENU = 'realmdle:pick';
 const allCards = [...cardsById.values()];
 
 // ---- signature ----
@@ -86,13 +97,24 @@ type Interaction = {
   guild_id?: string;
   member?: { nick?: string | null; user: DiscordUser };
   user?: DiscordUser;
-  data?: { name?: string; custom_id?: string; options?: Option[]; resolved?: { users?: Record<string, DiscordUser> } };
+  data?: {
+    name?: string;
+    custom_id?: string;
+    options?: Option[];
+    resolved?: { users?: Record<string, DiscordUser> };
+    /** A select menu's choice. */
+    values?: string[];
+    /** A submitted form's fields, as rows of text inputs (or labels around one). */
+    components?: { components?: { custom_id: string; value?: string }[]; component?: { custom_id: string; value?: string } }[];
+  };
 };
 
 const reply = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
 // mentions show a member's name without notifying them
 const quiet = { allowed_mentions: { parse: [] } };
-const privately = (embeds: Embed[], content?: string) => reply({ type: 4, data: { flags: EPHEMERAL, embeds, content, ...quiet } });
+const privately = (embeds: Embed[], content?: string, components: unknown[] = []) => reply({ type: 4, data: { flags: EPHEMERAL, embeds, content, components, ...quiet } });
+/** Redraws the private message the button or menu was on, so a game stays one message. */
+const redraw = (embeds: Embed[], content = '', components: unknown[] = []) => reply({ type: 7, data: { embeds, content, components, ...quiet } });
 const notice = (text: string) => reply({ type: 4, data: { flags: EPHEMERAL, content: text } });
 
 function whoIs(interaction: Interaction): Who & { user: DiscordUser } {
@@ -184,6 +206,45 @@ function resolveCard(value: string): { id: string } | { error: string } {
   return { error: `No card called **${value}**. Start typing and pick from the list.` };
 }
 
+const loose = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** Cards a typed name could mean: the exact name (in each set), or else the names containing it. */
+function matchesFor(typed: string, exclude: Set<string>): Card[] {
+  const q = loose(typed);
+  const exact = allCards.filter((c) => !exclude.has(c.id) && loose(c.name) === q);
+  return exact.length ? exact : suggest(allCards, typed, exclude, 25);
+}
+
+/** The text the player typed into the Guess form. */
+function formValue(interaction: Interaction, field: string): string {
+  const inputs = (interaction.data?.components ?? []).flatMap((row) => row.components ?? (row.component ? [row.component] : []));
+  return inputs.find((c) => c.custom_id === field)?.value ?? '';
+}
+
+function guessForm(puzzle: number) {
+  const input = { type: 4, custom_id: 'card', style: 1, label: 'Card name', placeholder: 'e.g. Pendulum of Peril', required: true, min_length: 2, max_length: 100 };
+  return reply({ type: 9, data: { custom_id: `${GUESS_FORM}:${puzzle}`, title: `Realmdle #${puzzle}`, components: [{ type: 1, components: [input] }] } });
+}
+
+function pickMenu(puzzle: number, cards: Card[]) {
+  const options = cards.map((c) => ({ label: `${c.name} (${c.set})`.slice(0, 100), value: c.id, description: `${c.type}${c.cost === null ? '' : ` · ${c.cost} mana`}` }));
+  return { type: 1, components: [{ type: 3, custom_id: `${PICK_MENU}:${puzzle}`, placeholder: 'Which card?', options }] };
+}
+
+type Respond = (embeds: Embed[], content?: string, components?: unknown[]) => Response;
+
+/** Records a guess and shows the board, posting the result publicly if that finished the game. */
+async function play(env: Ready, ctx: ExecutionContext, interaction: Interaction, who: Who, today: number, answer: Card, cardId: string, respond: Respond) {
+  const result = await guess(env.DB, who.id, today, answer, cardId);
+  const b = await board(env.DB, today, answer, who.id);
+  if (!result.ok) return respond([boardEmbed(b, cardsById)], result.error, boardButtons(b));
+  if (!b.over) return respond([boardEmbed(b, cardsById)], undefined, boardButtons(b));
+  // the one public step: the finished result, after the private reply
+  ctx.waitUntil(postResult(env, interaction, b, who));
+  const where = channelReady(env) ? ` in <#${env.DISCORD_CHANNEL_ID}>` : '';
+  return respond([boardEmbed(b, cardsById)], `Your result has been posted${where}.`);
+}
+
 async function handle(env: Ready, ctx: ExecutionContext, interaction: Interaction): Promise<Response> {
   const today = puzzleNumber(new Date());
   await ensurePlanned(env.DB, env.PLAN_SALT, today);
@@ -200,25 +261,36 @@ async function handle(env: Ready, ctx: ExecutionContext, interaction: Interactio
   }
 
   await upsertPlayer(env.DB, who.id, who.name, who.avatar);
-  const isButton = interaction.type === 3 && interaction.data?.custom_id === PLAY_BUTTON;
-  const { name, options } = isButton ? { name: 'play', options: [] } : subcommand(interaction);
+  const custom = interaction.data?.custom_id ?? '';
+
+  // the Guess button, its form and the menu of matches, all on the player's private board
+  const [, step, day] = custom.split(':');
+  if (custom.startsWith(`${GUESS_BUTTON}:`) || custom.startsWith(`${GUESS_FORM}:`) || custom.startsWith(`${PICK_MENU}:`)) {
+    if (Number(day) !== today) {
+      const b = await board(env.DB, today, answer, who.id);
+      return redraw([boardEmbed(b, cardsById)], 'A new day has started. This is today’s Realmdle.', boardButtons(b));
+    }
+    if (step === 'guess') return guessForm(today);
+    if (step === 'pick') return play(env, ctx, interaction, who, today, answer, interaction.data?.values?.[0] ?? '', redraw);
+    const typed = formValue(interaction, 'card');
+    const matches = matchesFor(typed, await guessedToday(env.DB, who.id, today));
+    if (matches.length === 1) return play(env, ctx, interaction, who, today, answer, matches[0].id, redraw);
+    const b = await board(env.DB, today, answer, who.id);
+    if (!matches.length) return redraw([boardEmbed(b, cardsById)], `No card matches **${typed.trim()}**. Press Guess to try again.`, boardButtons(b));
+    return redraw([boardEmbed(b, cardsById)], `Which card did you mean by **${typed.trim()}**?`, [pickMenu(today, matches), ...boardButtons(b)]);
+  }
+
+  const { name, options } = interaction.type === 3 && custom === PLAY_BUTTON ? { name: 'play', options: [] } : subcommand(interaction);
 
   if (name === 'play') {
     const b = await board(env.DB, today, answer, who.id);
-    return privately([boardEmbed(b, cardsById)], b.over ? 'You have finished today’s Realmdle. A new card arrives at midnight, Sydney time.' : undefined);
+    return privately([boardEmbed(b, cardsById)], b.over ? 'You have finished today’s Realmdle. A new card arrives at midnight, Sydney time.' : undefined, boardButtons(b));
   }
 
   if (name === 'guess') {
     const picked = resolveCard(String(option(options, 'card') ?? ''));
     if ('error' in picked) return notice(picked.error);
-    const result = await guess(env.DB, who.id, today, answer, picked.id);
-    if (!result.ok) return notice(result.error);
-    const b = await board(env.DB, today, answer, who.id);
-    if (!b.over) return privately([boardEmbed(b, cardsById)]);
-    // the one public step: the finished result, after the private reply
-    ctx.waitUntil(postResult(env, interaction, b, who));
-    const where = channelReady(env) ? ` in <#${env.DISCORD_CHANNEL_ID}>` : '';
-    return privately([boardEmbed(b, cardsById)], `Your result has been posted${where}.`);
+    return play(env, ctx, interaction, who, today, answer, picked.id, privately);
   }
 
   if (name === 'stats') {
