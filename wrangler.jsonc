@@ -1,0 +1,33 @@
+{
+  // Realmdle's Cloudflare Worker: the /realmdle Discord bot at
+  // https://realmdle.realmofoz.com. See README.md for setup.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "realmdle",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-08",
+  // Cloudflare creates the DNS record and certificate for this on deploy
+  // (realmofoz.com must be a zone in the same Cloudflare account).
+  "routes": [{ "pattern": "realmdle.realmofoz.com", "custom_domain": true }],
+  "workers_dev": false,
+  // Hourly: plan today and the week ahead, and post the midnight message.
+  "triggers": { "crons": ["7 * * * *"] },
+  "vars": {
+    // Public values from Discord (README.md, setup step 3). The two secrets
+    // are set with `npx wrangler secret put`: DISCORD_BOT_TOKEN, PLAN_SALT.
+    "DISCORD_PUBLIC_KEY": "",
+    "DISCORD_GUILD_ID": "",
+    "DISCORD_CHANNEL_ID": ""
+  },
+  // Paste the id from `npx wrangler d1 create realmdle` (README.md, step 1).
+  "d1_databases": [{ "binding": "DB", "database_name": "realmdle", "database_id": "PASTE-ID-HERE", "migrations_dir": "migrations" }],
+
+  "env": {
+    // Local development only: `npm run dev`, with a local SQLite database.
+    // Test keys and ids go in .dev.vars (`node scripts/discord-smoke.mjs keys`).
+    "dev": {
+      "routes": [],
+      "workers_dev": true,
+      "d1_databases": [{ "binding": "DB", "database_name": "realmdle", "database_id": "local-only", "migrations_dir": "migrations" }]
+    }
+  }
+}

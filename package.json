@@ -1,0 +1,22 @@
+{
+  "name": "realmdle",
+  "private": true,
+  "description": "Realmdle: guess the Sorcery: Contested Realm card of the day, in the Sorcery TCG Australia Discord",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler d1 migrations apply realmdle --local --env dev && wrangler dev --env dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
+    "smoke": "node scripts/discord-smoke.mjs",
+    "fetch-cards": "tsx scripts/fetch-cards.ts",
+    "register-commands": "node scripts/discord-commands.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.0",
+    "wrangler": "^4.0.0"
+  }
+}
