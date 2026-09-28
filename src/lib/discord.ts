@@ -115,8 +115,11 @@ export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
   }
 
   const fields: Embed['fields'] = [];
-  if (board.hint)
-    fields.push({ name: '⚠️ Last guess! Here is a hint ⚠️', value: board.hint.length ? `💡 The card is a **${board.hint.join(' ')}**.` : '💡 The card has no subtype.' });
+  if (board.hint) {
+    const { subtypes, typeline } = board.hint;
+    const lines = [typeline ? `💡 *“${typeline}”*` : '', subtypes.length ? `🏷️ The card is a **${subtypes.join(' ')}**.` : typeline ? '' : '💡 The card has no subtype.'];
+    fields.push({ name: '⚠️ Last guess! Here is a hint ⚠️', value: lines.filter(Boolean).join('\n') });
+  }
   const left = MAX_GUESSES - rows.length;
   return {
     color: board.hint ? COLOURS.warning : COLOURS.neutral,

@@ -4,7 +4,7 @@
 import cardData from '../data/cards.json';
 import type { Board } from './lib/board';
 import type { RankedRow, WeekReview } from './lib/discord';
-import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, compare, extendSchedule, looseName, puzzleDate, releaseGate, suggest } from './lib/engine';
+import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, compare, extendSchedule, looseName, puzzleDate, releaseGate, suggest, veiledTypeline } from './lib/engine';
 import { playerStats, type Play } from './lib/stats';
 import type { Card, CardData } from './lib/types';
 
@@ -214,7 +214,7 @@ export async function board(db: D1Database, puzzle: number, answer: Card, player
     }),
     over,
     won: today?.solved === 1,
-    hint: ids.length >= HINT_AFTER ? answer.subtypes : null,
+    hint: ids.length >= HINT_AFTER ? { subtypes: answer.subtypes, typeline: veiledTypeline(answer) } : null,
     answer: over ? answer.id : null,
     stats: playerStats(results.map(toPlay), puzzle),
   };

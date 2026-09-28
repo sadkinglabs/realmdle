@@ -28,6 +28,8 @@ export type RegistryExport = {
     product: string;
     finish: string;
     image_urls: { normal: string } | null;
+    /** "A Unique Site at creation’s core": rarity, type and a flavour phrase. */
+    typeline?: string | null;
   }[];
 };
 
@@ -65,6 +67,7 @@ export function normalise(registry: RegistryExport, source: string, fetchedAt: s
     for (const code of order) {
       const printings = bySet.get(`${c.codex_id}-${code}`);
       if (!printings) continue;
+      const shown = representative(printings);
       cards.push({
         id: `${c.codex_id}-${code}`,
         name: c.name,
@@ -77,7 +80,8 @@ export function normalise(registry: RegistryExport, source: string, fetchedAt: s
         rarity: isRarity(c.rarity) ? c.rarity : null,
         subtypes: c.subtypes ?? [],
         set: setName.get(code)!,
-        image: representative(printings).image_urls?.normal ?? null,
+        image: shown.image_urls?.normal ?? null,
+        typeline: shown.typeline || null,
       });
     }
   }

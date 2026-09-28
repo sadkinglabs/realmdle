@@ -15,6 +15,7 @@ const card = (over: Partial<Card> & { id: string; name: string }): Card => ({
   subtypes: ['Beast'],
   set: 'Alpha',
   image: 'https://img.test/a.webp',
+  typeline: null,
   ...over,
 });
 const SETS = ['Alpha', 'Beta', 'Arthurian Legends'];
@@ -64,9 +65,17 @@ describe('private board', () => {
 
   it('warns about the last guess and adds the hint', () => {
     const miss5 = Array.from({ length: 5 }, () => ({ id: 'miss', feedback: compare(miss, answer, SETS) }));
-    const e = boardEmbed(board({ hint: ['Dragon'], guesses: miss5 }), cards);
+    const e = boardEmbed(board({ hint: { subtypes: ['Dragon'], typeline: 'A ___ of fire and fury' }, guesses: miss5 }), cards);
     expect(e.title).toBe('Realmdle #12 · ⚠️ last guess');
-    expect(e.fields?.[0]).toEqual({ name: '⚠️ Last guess! Here is a hint ⚠️', value: '💡 The card is a **Dragon**.' });
+    expect(e.fields?.[0]).toEqual({ name: '⚠️ Last guess! Here is a hint ⚠️', value: '💡 *“A ___ of fire and fury”*\n🏷️ The card is a **Dragon**.' });
+  });
+
+  it('hints with the typeline alone for a card with no subtype, and says so without either', () => {
+    const miss5 = Array.from({ length: 5 }, () => ({ id: 'miss', feedback: compare(miss, answer, SETS) }));
+    const site = boardEmbed(board({ hint: { subtypes: [], typeline: 'A ___ at creation’s core' }, guesses: miss5 }), cards);
+    expect(site.fields?.[0].value).toBe('💡 *“A ___ at creation’s core”*');
+    const bare = boardEmbed(board({ hint: { subtypes: [], typeline: null }, guesses: miss5 }), cards);
+    expect(bare.fields?.[0].value).toBe('💡 The card has no subtype.');
   });
 
   it('reveals the card with its art, the streak and a countdown to the next card', () => {

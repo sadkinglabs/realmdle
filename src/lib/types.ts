@@ -29,6 +29,8 @@ export type Card = {
   set: string;
   /** Art to reveal once the puzzle is over, if the source provides one. */
   image: string | null;
+  /** The printed typeline, e.g. "A Unique Site at creation’s core"; the last-guess hint, with its rarity and type words blanked. */
+  typeline: string | null;
 };
 
 export type CardData = {

@@ -29,7 +29,9 @@ it fits only one card, ignoring case and punctuation.
 - **Clues:** element (match, or close if one element is shared), type,
   cost and power (close within one, with a higher/lower arrow), rarity
   and set (with a rarer/newer arrow). The sixth and last guess also shows
-  the answer's subtypes (Monster, Mortal, Spirit...) as a hint.
+  a hint: the answer's printed typeline with its rarity, type and subtype
+  words blanked ("A ___ at creation’s core" for Kingdom of Agartha), and
+  its subtypes (Monster, Mortal, Spirit...) if it has any.
 - **Guess by name, answers by set:** each set's printing is its own
   possible answer (Apprentice Wizard in Alpha is `C000001-001`, in Beta
   `C000001-002`: same stats, different set), but players guess by name.

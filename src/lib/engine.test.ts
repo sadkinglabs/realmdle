@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerPool, compare, extendSchedule, nameRepeats, puzzleDate, puzzleNumber, puzzleStart, releaseGate, suggest } from './engine';
+import { answerPool, compare, extendSchedule, nameRepeats, puzzleDate, puzzleNumber, puzzleStart, releaseGate, suggest, veiledTypeline } from './engine';
 import type { Card } from './types';
 
 // Made-up cards: the rules are tested against shapes, not real card data.
@@ -14,6 +14,7 @@ const card = (over: Partial<Card> & { name: string }): Card => ({
   subtypes: [],
   set: 'First',
   image: null,
+  typeline: null,
   ...over,
 });
 const answer = card({ name: 'Test Drake', elements: ['Fire', 'Water'], cost: 5, power: 4, rarity: 'Elite', set: 'Second' });
@@ -161,6 +162,22 @@ describe('suggest', () => {
     const named = [card({ name: "King's Bridge" }), card({ name: 'Kingdom' })];
     expect(suggest(named, 'kings b', new Set()).map((c) => c.name)).toEqual(["King's Bridge"]);
     expect(suggest(named, 'KING', new Set()).map((c) => c.name)).toEqual(["King's Bridge", 'Kingdom']);
+  });
+});
+
+describe('veiledTypeline', () => {
+  const veil = (typeline: string, over: Partial<Card> = {}) => veiledTypeline(card({ name: 'X', typeline, ...over }));
+  it('blanks rarity, type and subtype words, wherever they are', () => {
+    expect(veil('A Unique Site at creation’s core', { type: 'Site' })).toBe('A ___ at creation’s core');
+    expect(veil('Elite Magic of violent upheaval', { type: 'Magic' })).toBe('___ of violent upheaval');
+    expect(veil('A cruel conspiracy of Ordinary Beasts', { subtypes: ['Beast'] })).toBe('A cruel conspiracy of ___');
+    expect(veil('A Site where Ordinary families thrive', { type: 'Site' })).toBe('A ___ where ___ families thrive');
+  });
+  it('never gives away a vowel through "An"', () => {
+    expect(veil('An Exceptional Monster, terminally transformed', { subtypes: ['Monster'] })).toBe('A ___, terminally transformed');
+  });
+  it('is null without a typeline', () => {
+    expect(veiledTypeline(card({ name: 'X' }))).toBeNull();
   });
 });
 

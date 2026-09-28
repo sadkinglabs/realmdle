@@ -13,8 +13,8 @@ export type Board = {
   guesses: { id: string; feedback: Feedback }[];
   over: boolean;
   won: boolean;
-  /** The answer's subtypes, once the last guess is reached. */
-  hint: string[] | null;
+  /** Once the last guess is reached: the answer's subtypes and its typeline with the clue words blanked. */
+  hint: { subtypes: string[]; typeline: string | null } | null;
   /** The answer's card id, only once the puzzle is over. */
   answer: string | null;
   stats: PlayerStats | null;

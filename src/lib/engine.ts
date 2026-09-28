@@ -251,6 +251,25 @@ export function formatElements(elements: Card['elements']): string {
   return elements.length ? [...elements].sort((a, b) => ELEMENTS.indexOf(a) - ELEMENTS.indexOf(b)).join(' ') : 'None';
 }
 
+const CARD_TYPES = ['Minion', 'Magic', 'Aura', 'Artifact', 'Site', 'Avatar'];
+const escape = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The typeline as a last-guess hint, without the clues it would give away:
+ * rarity, type and subtype words (singular or plural) become "___", runs of
+ * them one blank, and "An ___" becomes "A ___" so the article does not hint
+ * at a vowel. "A Unique Site at creation’s core" → "A ___ at creation’s core".
+ */
+export function veiledTypeline(card: Card): string | null {
+  if (!card.typeline) return null;
+  const words = [...new Set([...RARITIES, ...CARD_TYPES, card.type, ...card.subtypes])];
+  const forms = words.flatMap((w) => [`${w}es`, `${w}s`, w]).sort((a, b) => b.length - a.length);
+  return card.typeline
+    .replace(new RegExp(`\\b(${forms.map(escape).join('|')})\\b`, 'g'), '___')
+    .replace(/___(?:[ ,]+___)+/g, '___')
+    .replace(/\b(An?|an?) ___/g, (_, article: string) => `${article[0]} ___`);
+}
+
 /** A name for matching what players type: case, spaces and punctuation ignored ("kings" finds "King's"). */
 export const looseName = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 

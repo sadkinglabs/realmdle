@@ -24,7 +24,7 @@ let next = 0;
 const printing = (codex_id: string, set_code: string, over: Partial<RawPrinting> = {}): RawPrinting => {
   next += 1;
   const printing_id = `P${String(next).padStart(6, '0')}`;
-  return { printing_id, codex_id, set_code, product: 'Booster', finish: 'Standard', image_urls: { normal: `https://img.test/${printing_id}.webp` }, ...over };
+  return { printing_id, codex_id, set_code, product: 'Booster', finish: 'Standard', image_urls: { normal: `https://img.test/${printing_id}.webp` }, typeline: 'An Ordinary Demon of the tests', ...over };
 };
 
 const registry: RegistryExport = {
@@ -71,7 +71,7 @@ describe('normalise', () => {
 
   it('keeps the same stats across sets, with the set and art of that printing', () => {
     const [first, second] = data.cards.filter((c) => c.name === 'Test Imp');
-    expect(first).toEqual({ id: 'C000001-001', name: 'Test Imp', type: 'Minion', elements: ['Fire'], cost: 2, power: 1, rarity: 'Ordinary', subtypes: ['Demon'], set: 'First', image: 'https://img.test/P000002.webp' });
+    expect(first).toEqual({ id: 'C000001-001', name: 'Test Imp', type: 'Minion', elements: ['Fire'], cost: 2, power: 1, rarity: 'Ordinary', subtypes: ['Demon'], set: 'First', image: 'https://img.test/P000002.webp', typeline: 'An Ordinary Demon of the tests' });
     expect(second).toEqual({ ...first, id: 'C000001-002', set: 'Second', image: 'https://img.test/P000003.webp' });
   });
 
