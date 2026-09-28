@@ -98,10 +98,10 @@ r = await quick(eve, 'apprentice wiz', true);
 const names = r.body.data.choices.map((c) => c.name);
 check('autocomplete lists a card in two sets once, by name', r.body.type === 8 && names.filter((n) => n === 'Apprentice Wizard').length === 1 && !names.some((n) => n.includes('(')), names.join(', '));
 
-// a name printed in several sets is guessed by name alone (never today's answer here)
-const reprint = cards.find((c) => c.name !== answer.name && cards.some((o) => o.name === c.name && o.set !== c.set));
+// a name printed in several sets is guessed by name alone (never today's answer here); any card if none is
+const reprint = cards.find((c) => c.name !== answer.name && cards.some((o) => o.name === c.name && o.set !== c.set)) ?? wrong[0];
 r = await quick(eve, reprint.name.toLowerCase());
-check('a card in several sets is guessed by name, no set to pick', r.body.data.flags === 64 && r.body.data.embeds[0].title === `Realmdle #${today} · 5 guesses left` && r.body.data.embeds[0].description.includes(`**${reprint.name}**`), reprint.name);
+check('a card is guessed by its name, in any case, with no set to pick', r.body.data.flags === 64 && r.body.data.embeds[0].title === `Realmdle #${today} · 5 guesses left` && r.body.data.embeds[0].description.includes(`**${reprint.name}**`), reprint.name);
 r = await quick(eve, reprint.name);
 check('guessing the same name again is refused, in any set', r.body.data.content.includes('already guessed'));
 r = await quick(eve, 'zzzz no such card');

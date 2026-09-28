@@ -32,15 +32,18 @@ it fits only one card, ignoring case and punctuation.
   a hint: the answer's printed typeline with its rarity, type and subtype
   words blanked ("A ___ at creation’s core" for Kingdom of Agartha), and
   its subtypes (Monster, Mortal, Spirit...) if it has any.
-- **Guess by name, answers by set:** each set's printing is its own
-  possible answer (Apprentice Wizard in Alpha is `C000001-001`, in Beta
-  `C000001-002`: same stats, different set), but players guess by name.
-  Guessing the answer's name wins whatever set it is from; any other name
-  in several sets is scored as its first printing. Foils and other
-  finishes are the same entry. Tokens and promo printings are left out.
+- **Guess by name, answers by set:** a card reprinted in a later set is
+  its own possible answer there, but players guess by name. Guessing the
+  answer's name wins whatever set it is from; any other name in several
+  sets is scored as its first printing. Foils and other finishes are the
+  same entry. Tokens and promo printings are left out.
+- **Alpha is Beta:** Beta reprinted Alpha card for card, so a card in both
+  is only its Beta entry (Apprentice Wizard is `C000001-002`). The six
+  cards only printed in Alpha keep theirs: Erik's Curiosa and Winter River
+  (possible answers) and the four elemental Avatars.
 - **One possible answer:** a card can only be the answer if no other card
   shares all six of its clue values; otherwise a player could turn every
-  clue green and still be wrong. About 620 of ~1,480 entries qualify.
+  clue green and still be wrong. About 470 of ~1,090 entries qualify.
   Avatars (no rarity) can be guessed but are never the answer.
 
 ## Choosing each day's answer

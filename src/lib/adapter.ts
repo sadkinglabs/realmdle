@@ -33,6 +33,14 @@ export type RegistryExport = {
   }[];
 };
 
+/**
+ * Sets whose cards another set reprinted unchanged: Beta is Alpha again, so
+ * two entries would look the same except for the set, which players found
+ * confusing. A card in both keeps only the later entry; the few only ever
+ * printed in Alpha keep theirs.
+ */
+const SUPERSEDED_BY: Record<string, string> = { Alpha: 'Beta' };
+
 const isElement = (e: string): e is Element => (ELEMENTS as readonly string[]).includes(e);
 const isRarity = (r: string | null): r is Rarity => r !== null && (RARITIES as readonly string[]).includes(r);
 
@@ -43,10 +51,11 @@ function representative(printings: RegistryExport['printings']): RegistryExport[
 }
 
 /**
- * One entry per card per release set: Apprentice Wizard in Alpha and in
- * Beta are separate guesses and separate possible answers, with the same
- * stats but a different set. Foils and other finishes within a set are the
- * same entry. Promo printings are left out: the promo set is dated before
+ * One entry per card per release set: a card reprinted in a later set (say
+ * Gothic) is a separate possible answer there, with that set's stats. Alpha
+ * is the exception: its cards are only kept where Beta did not reprint them
+ * (SUPERSEDED_BY). Foils and other finishes within a set are the same
+ * entry. Promo printings are left out: the promo set is dated before
  * Alpha, which would make "older" and "newer" clues meaningless.
  */
 export function normalise(registry: RegistryExport, source: string, fetchedAt: string, sha256: string | null): CardData {
@@ -67,6 +76,10 @@ export function normalise(registry: RegistryExport, source: string, fetchedAt: s
     for (const code of order) {
       const printings = bySet.get(`${c.codex_id}-${code}`);
       if (!printings) continue;
+      // Beta reprinted Alpha card for card, so a card in both is only its Beta entry
+      const successor = SUPERSEDED_BY[setName.get(code)!];
+      const later = successor && releases.find((s) => s.set_name === successor);
+      if (later && bySet.has(`${c.codex_id}-${later.set_code}`)) continue;
       const shown = representative(printings);
       cards.push({
         id: `${c.codex_id}-${code}`,

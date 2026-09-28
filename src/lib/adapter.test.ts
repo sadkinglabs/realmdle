@@ -88,4 +88,17 @@ describe('normalise', () => {
     expect(data.cards.find((c) => c.name === 'Test Tower')).toMatchObject({ elements: [], subtypes: [] });
     expect(data.cards.find((c) => c.name === 'Test Avatar')).toMatchObject({ elements: ['Air', 'Water'], rarity: null, image: null });
   });
+
+  it('keeps only the Beta entry of a card Beta reprinted, and Alpha-only cards as Alpha', () => {
+    const alphaBeta: RegistryExport = {
+      sets: [
+        { set_code: '001', set_name: 'Alpha', released_at: '2023-06-22', kind: 'release' },
+        { set_code: '002', set_name: 'Beta', released_at: '2023-10-06', kind: 'release' },
+      ],
+      cards: [record({ codex_id: 'C000010', name: 'Reprinted' }), record({ codex_id: 'C000011', name: 'Alpha Only' })],
+      printings: [printing('C000010', '001'), printing('C000010', '002'), printing('C000011', '001')],
+    };
+    const cards = normalise(alphaBeta, 'test', '2026-01-01T00:00:00Z', null).cards;
+    expect(cards.map((c) => `${c.id} ${c.set}`)).toEqual(['C000011-001 Alpha', 'C000010-002 Beta']);
+  });
 });
