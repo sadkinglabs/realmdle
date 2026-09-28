@@ -57,22 +57,15 @@ export function hash(text: string): number {
   return h >>> 0;
 }
 
-/** Everything a guess is compared on. Two cards with the same signature look identical on the board. */
-export function signature(card: Card): string {
-  return JSON.stringify([card.elements, card.type, card.cost, card.power, card.rarity, card.set]);
-}
-
 /**
- * Cards that can be the answer. Only one card may fit all six clues: if
- * another card shared the answer's signature, a player could turn every
- * tile green and still be wrong, with nothing on the board to tell the two
- * apart. So a card is eligible only when its signature is unique among all
- * guessable cards, and it has a rarity (avatars have none).
+ * Cards that can be the answer: every card with a rarity (avatars have
+ * none). Look-alikes are allowed: seven Ordinary Air Magics cost 2 in Beta,
+ * so a player can turn every square green and still be wrong. The board
+ * says so when that happens, and the last-guess hint (the answer's
+ * typeline) tells them apart; every typeline is different.
  */
 export function answerPool(cards: Card[]): Card[] {
-  const count = new Map<string, number>();
-  for (const card of cards) count.set(signature(card), (count.get(signature(card)) ?? 0) + 1);
-  return cards.filter((c) => c.rarity !== null && c.set !== '' && count.get(signature(c)) === 1);
+  return cards.filter((c) => c.rarity !== null && c.set !== '');
 }
 
 /** Highest `hash(puzzle:id)` wins: a stable, even-handed pick from any list. */
@@ -204,48 +197,60 @@ export function nameRepeats(cards: Card[], schedule: string[], gap = NAME_GAP): 
   return repeats;
 }
 
+/**
+ * 🟩 exact, 🟨 close, ⬛ miss. Only mana also says which way the answer
+ * lies (up: the answer costs more); elsewhere close says near, not which way.
+ */
 export type Verdict = 'correct' | 'partial' | 'wrong';
-/** Which way the answer lies from the guess: up means higher, later or rarer. */
-export type Direction = 'up' | 'down' | null;
-export type Clue = { verdict: Verdict; direction: Direction };
+export type Clue = { verdict: Verdict; direction?: 'up' | 'down' };
 
 export const COLUMNS = ['elements', 'type', 'cost', 'power', 'rarity', 'set'] as const;
 export type Column = (typeof COLUMNS)[number];
 export type Feedback = Record<Column, Clue>;
 
-function ordinal(guess: number, answer: number, closeWithin: number): Clue {
-  if (guess === answer) return { verdict: 'correct', direction: null };
-  const direction = answer > guess ? 'up' : 'down';
-  return { verdict: Math.abs(answer - guess) <= closeWithin ? 'partial' : 'wrong', direction };
+const exact = (same: boolean): Clue => ({ verdict: same ? 'correct' : 'wrong' });
+
+/** Numbers and ranked values: exact, or close when one away either side. */
+function oneAway(guess: number, answer: number): Clue {
+  return { verdict: guess === answer ? 'correct' : Math.abs(answer - guess) === 1 ? 'partial' : 'wrong' };
 }
 
 /**
- * Cost and power: numbers compare exactly, close within one, with an arrow.
- * 'X' (variable) and null (none) are values of their own: they match only
- * themselves, and have no direction against anything else.
+ * Mana and power. 'X' (variable) and null (none) are values of their own:
+ * they match only themselves, and are never close to a number.
  */
 function costLike(guess: number | 'X' | null, answer: number | 'X' | null): Clue {
-  if (typeof guess !== 'number' || typeof answer !== 'number') return { verdict: guess === answer ? 'correct' : 'wrong', direction: null };
-  return ordinal(guess, answer, 1);
+  if (typeof guess !== 'number' || typeof answer !== 'number') return exact(guess === answer);
+  return oneAway(guess, answer);
 }
 
+/** The mana arrow: on any numeric miss, whether the answer costs more (up) or less. */
+function withDirection(clue: Clue, guess: Card['cost'], answer: Card['cost']): Clue {
+  if (clue.verdict === 'correct' || typeof guess !== 'number' || typeof answer !== 'number') return clue;
+  return { ...clue, direction: answer > guess ? 'up' : 'down' };
+}
+
+/** Threshold: the same elements, or close with at least one in common. */
 function elementClue(guess: Card['elements'], answer: Card['elements']): Clue {
-  const same = guess.length === answer.length && guess.every((e) => answer.includes(e));
-  if (same) return { verdict: 'correct', direction: null };
-  return { verdict: guess.some((e) => answer.includes(e)) ? 'partial' : 'wrong', direction: null };
+  if (guess.length === answer.length && guess.every((e) => answer.includes(e))) return exact(true);
+  return { verdict: guess.some((e) => answer.includes(e)) ? 'partial' : 'wrong' };
 }
 
 export function compare(guess: Card, answer: Card, sets: string[]): Feedback {
-  const rank = (r: Card['rarity']) => (r === null ? -1 : RARITIES.indexOf(r));
   return {
     elements: elementClue(guess.elements, answer.elements),
-    type: { verdict: guess.type === answer.type ? 'correct' : 'wrong', direction: null },
-    cost: costLike(guess.cost, answer.cost),
+    type: exact(guess.type === answer.type),
+    cost: withDirection(costLike(guess.cost, answer.cost), guess.cost, answer.cost),
     power: costLike(guess.power, answer.power),
-    rarity: ordinal(rank(guess.rarity), rank(answer.rarity), 0),
-    set: ordinal(sets.indexOf(guess.set), sets.indexOf(answer.set), 0),
+    // rarity in order Ordinary, Exceptional, Elite, Unique; none (avatars) matches only none
+    rarity: guess.rarity && answer.rarity ? oneAway(RARITIES.indexOf(guess.rarity), RARITIES.indexOf(answer.rarity)) : exact(guess.rarity === answer.rarity),
+    // sets in release order
+    set: oneAway(sets.indexOf(guess.set), sets.indexOf(answer.set)),
   };
 }
+
+/** Every clue green on a card that is not the answer: another card looks the same. */
+export const allMatch = (feedback: Feedback) => COLUMNS.every((c) => feedback[c].verdict === 'correct');
 
 export function formatElements(elements: Card['elements']): string {
   return elements.length ? [...elements].sort((a, b) => ELEMENTS.indexOf(a) - ELEMENTS.indexOf(b)).join(' ') : 'None';

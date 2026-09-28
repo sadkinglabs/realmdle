@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerPool, compare, extendSchedule, nameRepeats, puzzleDate, puzzleNumber, puzzleStart, releaseGate, suggest, veiledTypeline } from './engine';
+import { allMatch, answerPool, compare, extendSchedule, nameRepeats, puzzleDate, puzzleNumber, puzzleStart, releaseGate, suggest, veiledTypeline } from './engine';
 import type { Card } from './types';
 
 // Made-up cards: the rules are tested against shapes, not real card data.
@@ -36,12 +36,12 @@ describe('puzzleNumber', () => {
 });
 
 describe('answerPool', () => {
-  it('only allows a card no other card can be mistaken for', () => {
+  it('allows look-alikes: the last-guess hint tells them apart', () => {
     const twinA = card({ name: 'Twin A', type: 'Site', elements: [], cost: null, power: null });
     const twinB = card({ name: 'Twin B', type: 'Site', elements: [], cost: null, power: null });
     const loner = card({ name: 'Loner', cost: 9 });
-    expect(answerPool([twinA, twinB, loner]).map((c) => c.name)).toEqual(['Loner']);
-    expect(new Set(extendSchedule([twinA, twinB, loner], [], 20))).toEqual(new Set([loner.id]));
+    expect(answerPool([twinA, twinB, loner]).map((c) => c.name)).toEqual(['Twin A', 'Twin B', 'Loner']);
+    expect(new Set(extendSchedule([twinA, twinB, loner], [], 20))).toEqual(new Set([twinA.id, twinB.id, loner.id]));
   });
 
   it('skips cards without a rarity', () => {
@@ -123,30 +123,44 @@ describe('compare', () => {
     expect(Object.values(f).every((c) => c.verdict === 'correct')).toBe(true);
   });
 
-  it('gives partial and direction clues', () => {
+  it('marks close (an element in common, or one away either side), with an arrow on mana only', () => {
     const f = compare(card({ name: 'Guess', elements: ['Fire'], cost: 4, power: 1, rarity: 'Ordinary', set: 'Third' }), answer, SETS);
-    expect(f.elements).toEqual({ verdict: 'partial', direction: null });
+    expect(f.elements).toEqual({ verdict: 'partial' });
     expect(f.type.verdict).toBe('correct');
-    expect(f.cost).toEqual({ verdict: 'partial', direction: 'up' });
-    expect(f.power).toEqual({ verdict: 'wrong', direction: 'up' });
-    expect(f.rarity).toEqual({ verdict: 'wrong', direction: 'up' });
-    expect(f.set).toEqual({ verdict: 'wrong', direction: 'down' });
+    expect(f.cost).toEqual({ verdict: 'partial', direction: 'up' }); // 4 against 5: mana alone keeps its arrow
+    expect(f.power).toEqual({ verdict: 'wrong' }); // 1 against 4
+    expect(f.rarity).toEqual({ verdict: 'wrong' }); // Ordinary is two below Elite
+    expect(f.set).toEqual({ verdict: 'partial' }); // Third is one after Second
+    const above = compare(card({ name: 'Above', cost: 6, rarity: 'Unique', set: 'First' }), answer, SETS);
+    expect([above.cost.verdict, above.rarity.verdict, above.set.verdict]).toEqual(['partial', 'partial', 'partial']);
+    expect(above.cost.direction).toBe('down');
+    expect([f.power, f.rarity, f.set, above.rarity].some((c) => 'direction' in c)).toBe(false);
+  });
+
+  it('never calls a card without a rarity close to Ordinary', () => {
+    expect(compare(card({ name: 'An Avatar', rarity: null }), card({ name: 'Plain' }), SETS).rarity.verdict).toBe('wrong');
+  });
+
+  it('spots a look-alike: every clue green on another card', () => {
+    const twin = card({ ...answer, id: 'twin', name: 'Test Twin Drake' });
+    expect(allMatch(compare(twin, answer, SETS))).toBe(true);
+    expect(allMatch(compare(card({ name: 'Other' }), answer, SETS))).toBe(false);
   });
 
   it('treats a variable (X) cost or power as its own value, never None and never close', () => {
     const barrage = card({ name: 'Test Barrage', type: 'Magic', cost: 'X', power: null });
     const site = card({ name: 'Test Site', type: 'Site', elements: [], cost: null, power: null });
     const twin = card({ name: 'Test Twin', cost: 4, power: 'X' });
-    expect(compare(barrage, site, SETS).cost).toEqual({ verdict: 'wrong', direction: null });
+    expect(compare(barrage, site, SETS).cost).toEqual({ verdict: 'wrong' });
     expect(compare(barrage, barrage, SETS).cost.verdict).toBe('correct');
-    expect(compare(barrage, answer, SETS).cost).toEqual({ verdict: 'wrong', direction: null });
-    expect(compare(twin, answer, SETS).power).toEqual({ verdict: 'wrong', direction: null });
-    expect(compare(twin, barrage, SETS).power).toEqual({ verdict: 'wrong', direction: null });
+    expect(compare(barrage, answer, SETS).cost).toEqual({ verdict: 'wrong' });
+    expect(compare(twin, answer, SETS).power).toEqual({ verdict: 'wrong' });
+    expect(compare(twin, barrage, SETS).power).toEqual({ verdict: 'wrong' });
   });
 
   it('treats a missing cost as its own value', () => {
     const site = card({ name: 'Test Site', type: 'Site', elements: [], cost: null, power: null });
-    expect(compare(site, answer, SETS).cost).toEqual({ verdict: 'wrong', direction: null });
+    expect(compare(site, answer, SETS).cost).toEqual({ verdict: 'wrong' });
     expect(compare(site, site, SETS).elements.verdict).toBe('correct');
   });
 });

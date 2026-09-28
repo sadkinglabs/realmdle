@@ -44,8 +44,7 @@ describe('private board', () => {
     expect(e.title).toBe('Realmdle #12 · 5 guesses left');
     expect(e.description).toContain('**Test Imp** · Arthurian Legends');
     expect(e.description).toContain('🟨 Threshold **Fire**'); // shares an element
-    expect(e.description).toContain('🟨 Mana **4**▲'); // cost close, answer higher
-    expect(e.description).toContain('Set **Arthurian**▼');
+    expect(e.description).toContain('🟨 Mana **4**▲'); // one away, and mana says which way
     expect(JSON.stringify(e)).not.toContain('Test Drake');
   });
 
@@ -60,7 +59,7 @@ describe('private board', () => {
   it('labels each clue, three to a line', () => {
     const lines = boardEmbed(board({ guesses: [{ id: 'miss', feedback: compare(miss, answer, SETS) }] }), cards).description!.split('\n');
     expect(lines[1]).toBe('🟨 Threshold **Fire** · 🟩 Type **Minion** · 🟨 Mana **4**▲');
-    expect(lines[2]).toBe('🟨 Power **3**▲ · ⬛ Rarity **Ordinary**▲ · ⬛ Set **Arthurian**▼');
+    expect(lines[2]).toBe('🟨 Power **3** · ⬛ Rarity **Ordinary** · 🟨 Set **Arthurian**');
   });
 
   it('warns about the last guess and adds the hint', () => {
@@ -68,6 +67,16 @@ describe('private board', () => {
     const e = boardEmbed(board({ hint: { subtypes: ['Dragon'], typeline: 'A ___ of fire and fury' }, guesses: miss5 }), cards);
     expect(e.title).toBe('Realmdle #12 · ⚠️ last guess');
     expect(e.fields?.[0]).toEqual({ name: '⚠️ Last guess! Here is a hint ⚠️', value: '💡 *“A ___ of fire and fury”*\n🏷️ The card is a **Dragon**.' });
+  });
+
+  it('says so when every square is green on a look-alike, and uses "an" before a vowel', () => {
+    const twin = { ...answer, id: 'twin', name: 'Test Twin Drake' };
+    const withTwin = new Map([...cards, ['twin', twin]]);
+    const miss5 = Array.from({ length: 4 }, () => ({ id: 'miss', feedback: compare(miss, answer, SETS) }));
+    const e = boardEmbed(board({ guesses: [...miss5, { id: 'twin', feedback: compare(twin, answer, SETS) }], hint: { subtypes: ['Automaton'], typeline: null } }), withTwin);
+    expect(e.fields?.[0].name).toBe('🪞 A perfect look-alike!');
+    expect(e.fields?.[0].value).toContain('Every square on **Test Twin Drake** is green');
+    expect(e.fields?.[1].value).toBe('🏷️ The card is an **Automaton**.');
   });
 
   it('hints with the typeline alone for a card with no subtype, and says so without either', () => {
@@ -168,11 +177,13 @@ describe('leaderboard', () => {
 
 describe('midnight post', () => {
   it('recaps yesterday and invites people to play', () => {
-    const e = announcementEmbed(13, { card: answer, finished: 31, solved: 24 });
+    const e = announcementEmbed(13, { card: answer, finished: 31, solved: 24, winner: { id: '42', guesses: 2 } });
     expect(e.title).toBe('🔮 Realmdle #13 is live');
     expect(e.description).toContain("Yesterday's card was **Test Drake** (Beta).\n👥 **31** played · **24** solved");
     expect(e.description).toContain(HOW_TO);
+    expect(e.description).toContain("👑 Yesterday's winner: <@42>, solved in **2**, fewest guesses and first to do it");
     expect(e.fields).toBeUndefined(); // nobody on the leaderboard yet
+    expect(announcementEmbed(13, { card: answer, finished: 3, solved: 0, winner: null }).description).not.toContain('winner');
   });
 
   it('shows the top ten with streak, solved % and games played', () => {

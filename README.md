@@ -26,9 +26,10 @@ it fits only one card, ignoring case and punctuation.
 
 ## Rules
 
-- **Clues:** element (match, or close if one element is shared), type,
-  cost and power (close within one, with a higher/lower arrow), rarity
-  and set (with a rarer/newer arrow). The sixth and last guess also shows
+- **Clues:** 🟩 exact, 🟨 close, ⬛ miss. Threshold is close with an
+  element in common; mana, power, rarity and set are close when one away,
+  either side; type is right or wrong. Only mana has an arrow (▲ the
+  answer costs more, ▼ less), on any miss. The sixth and last guess also shows
   a hint: the answer's printed typeline with its rarity, type and subtype
   words blanked ("A ___ at creation’s core" for Kingdom of Agartha), and
   its subtypes (Monster, Mortal, Spirit...) if it has any.
@@ -41,10 +42,12 @@ it fits only one card, ignoring case and punctuation.
   is only its Beta entry (Apprentice Wizard is `C000001-002`). The six
   cards only printed in Alpha keep theirs: Erik's Curiosa and Winter River
   (possible answers) and the four elemental Avatars.
-- **One possible answer:** a card can only be the answer if no other card
-  shares all six of its clue values; otherwise a player could turn every
-  clue green and still be wrong. About 470 of ~1,090 entries qualify.
-  Avatars (no rarity) can be guessed but are never the answer.
+- **Look-alikes can be the answer:** any card with a rarity can (1,054 of
+  1,087; avatars can be guessed but never are). Several cards can share
+  all six clues, such as seven Ordinary Air Magics costing 2 in Beta, so
+  a guess can turn every square green and still be wrong. The board says
+  so ("A perfect look-alike!"), and the last-guess hint, the answer's own
+  typeline, tells them apart.
 
 ## Choosing each day's answer
 
@@ -94,7 +97,9 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
 - **The finished board** (private) reveals the card and art, the streak and
   a live countdown to the next card.
 - **The midnight post** goes to the same channel on the first hourly run
-  of the Sydney day: yesterday's card and numbers, how to play, the top
+  of the Sydney day: yesterday's card and numbers, yesterday's winner
+  (solved in the fewest guesses, and of those the first to finish, among
+  players on the leaderboard), how to play, the top
   ten on the leaderboard (streak, solved %, games played) and a Play
   button. The `announcements` table makes it once per day.
 - **The weekly recap** goes out on Mondays, just before that day's post:

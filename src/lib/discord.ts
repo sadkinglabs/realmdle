@@ -6,7 +6,7 @@
 // Emoji are Discord's native way to show colour, so the designs use them.
 
 import type { Board } from './board';
-import { COLUMNS, MAX_GUESSES, formatElements, puzzleStart, type Clue, type Column, type Feedback } from './engine';
+import { COLUMNS, MAX_GUESSES, allMatch, formatElements, puzzleStart, type Clue, type Column, type Feedback } from './engine';
 import type { PlayerStats } from './stats';
 import type { Card } from './types';
 
@@ -25,7 +25,6 @@ export type Embed = {
 
 export const COLOURS = { win: 0x5f8f55, loss: 0x8a6f5a, neutral: 0xe07a2c, gold: 0xc9a24f, warning: 0xc8423b } as const;
 const SQUARE = { correct: '🟩', partial: '🟨', wrong: '⬛' } as const;
-const ARROW = { up: '▲', down: '▼' } as const;
 const SHORT_SET: Record<string, string> = { 'Arthurian Legends': 'Arthurian' };
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -44,7 +43,7 @@ export function longDate(date: string): string {
 
 function cell(card: Card, column: Column, clue: Clue): string {
   const raw = column === 'elements' ? formatElements(card.elements) : column === 'set' ? shortSet(card.set) : (card[column] ?? 'None');
-  return `${SQUARE[clue.verdict]} ${LABELS[column]} **${raw}**${clue.direction ? ARROW[clue.direction] : ''}`;
+  return `${SQUARE[clue.verdict]} ${LABELS[column]} **${raw}**${clue.direction === 'up' ? '▲' : clue.direction === 'down' ? '▼' : ''}`;
 }
 
 /** One guess: the card, then its six labelled clues on two lines of three. */
@@ -70,8 +69,9 @@ export const HOW_TO =
   'Guess the Sorcery card of the day in 6 tries.\n' +
   'Type **/guess** and pick a card from the list as you type.\n\n' +
   `Each guess compares **${COLUMNS.map((c) => LABELS[c]).join(' · ')}**\n` +
-  '🟩 match  🟨 close  ⬛ miss\n' +
-  '▲▼ the answer is higher or lower, rarer or more common, newer or older\n' +
+  '🟩 exact  🟨 close  ⬛ miss\n' +
+  '🟨 close: an element in common, or one away on mana, power, rarity or set\n' +
+  '▲▼ on mana only: the answer costs more or less\n' +
   '💡 Your last guess comes with a hint.';
 
 /** The spoiler-free grid: squares only. */
@@ -115,9 +115,16 @@ export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
   }
 
   const fields: Embed['fields'] = [];
+  const twin = rows.find((r) => allMatch(r.feedback));
+  if (twin)
+    fields.push({
+      name: '🪞 A perfect look-alike!',
+      value: `Every square on **${twin.card.name}** is green, but it isn’t the answer: another card shares all six clues. Your last-guess hint tells them apart.`,
+    });
   if (board.hint) {
     const { subtypes, typeline } = board.hint;
-    const lines = [typeline ? `💡 *“${typeline}”*` : '', subtypes.length ? `🏷️ The card is a **${subtypes.join(' ')}**.` : typeline ? '' : '💡 The card has no subtype.'];
+    const kind = subtypes.join(' ');
+    const lines = [typeline ? `💡 *“${typeline}”*` : '', kind ? `🏷️ The card is ${/^[AEIOU]/.test(kind) ? 'an' : 'a'} **${kind}**.` : typeline ? '' : '💡 The card has no subtype.'];
     fields.push({ name: '⚠️ Last guess! Here is a hint ⚠️', value: lines.filter(Boolean).join('\n') });
   }
   const left = MAX_GUESSES - rows.length;
@@ -263,9 +270,14 @@ export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, vie
  * The midnight post: yesterday's reveal, how to play, and the top ten so
  * far (players on the leaderboard, ranked by streak), above a Play button.
  */
-export function announcementEmbed(puzzle: number, yesterday: { card: Card; finished: number; solved: number } | null, ranked: RankedRow[] = []): Embed {
+export type Yesterday = { card: Card; finished: number; solved: number; winner: { id: string; guesses: number } | null };
+
+export function announcementEmbed(puzzle: number, yesterday: Yesterday | null, ranked: RankedRow[] = []): Embed {
+  const winner = yesterday?.winner
+    ? `\n👑 Yesterday's winner: <@${yesterday.winner.id}>, solved in **${yesterday.winner.guesses}**${yesterday.solved > 1 ? ', fewest guesses and first to do it' : ''}`
+    : '';
   const recap = yesterday
-    ? `Yesterday's card was **${yesterday.card.name}** (${yesterday.card.set}).\n👥 **${yesterday.finished}** played · **${yesterday.solved}** solved`
+    ? `Yesterday's card was **${yesterday.card.name}** (${yesterday.card.set}).\n👥 **${yesterday.finished}** played · **${yesterday.solved}** solved${winner}`
     : 'The first Realmdle is here!';
   const top = ranked.slice(0, 10).map((r, i) => `${MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``} <@${r.id}>  🔥 **${r.currentStreak}** · ${r.winRate}% · ${r.played} played`);
   return {

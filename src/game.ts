@@ -130,6 +130,22 @@ export async function releaseAnnouncement(db: D1Database, puzzle: number): Promi
   await db.prepare('DELETE FROM announcements WHERE puzzle = ?').bind(puzzle).run();
 }
 
+/**
+ * A puzzle's winner: the player who solved it in the fewest guesses, and of
+ * those, the first to finish. Only players on the leaderboard can win.
+ */
+export async function dayWinner(db: D1Database, puzzle: number): Promise<{ id: string; guesses: number } | null> {
+  const row = await db
+    .prepare(
+      `SELECT x.discord_id, x.attempts FROM plays x JOIN players p ON p.discord_id = x.discord_id
+       WHERE x.puzzle = ? AND x.solved = 1 AND p.leaderboard = 1
+       ORDER BY x.attempts, x.finished_at LIMIT 1`,
+    )
+    .bind(puzzle)
+    .first<{ discord_id: string; attempts: number }>();
+  return row ? { id: row.discord_id, guesses: row.attempts } : null;
+}
+
 /** Claims a one-off job by name (such as a week's recap); false if another run already has. */
 export async function claimOnce(db: D1Database, key: string): Promise<boolean> {
   const result = await db.prepare('INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)').bind(key, now()).run();

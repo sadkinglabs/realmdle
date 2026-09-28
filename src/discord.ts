@@ -45,6 +45,7 @@ import {
   claimAnnouncement,
   claimOnce,
   dayCounts,
+  dayWinner,
   deletePlayer,
   ensurePlanned,
   getPlayer,
@@ -128,11 +129,11 @@ async function postResult(env: Ready, interaction: Interaction, b: Board, who: W
   if (!res.ok) console.error('result post failed', res.status, await res.text());
 }
 
-/** The midnight post, once per puzzle: yesterday's reveal, how to play, the top ten and a Play button. */
+/** The midnight post, once per puzzle: yesterday's reveal and winner, how to play, the top ten and a Play button. */
 export async function announce(env: RealmdleEnv & { DB: D1Database }, today: number) {
   if (!channelReady(env) || !(await claimAnnouncement(env.DB, today))) return;
   const card = today > 1 ? await answerFor(env.DB, today - 1) : null;
-  const yesterday = card ? { card, ...(await dayCounts(env.DB, today - 1)) } : null;
+  const yesterday = card ? { card, ...(await dayCounts(env.DB, today - 1)), winner: await dayWinner(env.DB, today - 1) } : null;
   const ranked = rank(await leaderboardRows(env.DB, today), 'streak');
   const res = await fetch(`${discordApi(env)}/channels/${env.DISCORD_CHANNEL_ID}/messages`, {
     method: 'POST',
