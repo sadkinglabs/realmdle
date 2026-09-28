@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Board } from './board';
-import { HOW_TO, announcementEmbed, boardEmbed, distributionBars, grid, hardestAndEasiest, leaderboardEmbed, playButton, rank, recapEmbed, resultEmbed, statsEmbed, type RankedRow, type WeekDay } from './discord';
+import { COLOURS, HOW_TO, announcementEmbed, boardEmbed, distributionBars, grid, hardestAndEasiest, leaderboardEmbed, playButton, rank, recapEmbed, resultEmbed, statsEmbed, type RankedRow, type WeekDay } from './discord';
 import { compare } from './engine';
 import { playerStats } from './stats';
 import type { Card } from './types';
@@ -77,6 +77,14 @@ describe('private board', () => {
     expect(e.fields?.[0].name).toBe('🪞 A perfect look-alike!');
     expect(e.fields?.[0].value).toContain('Every square on **Test Twin Drake** is green');
     expect(e.fields?.[1].value).toBe('🏷️ The card is an **Automaton**.');
+  });
+
+  it('gives the hint early, not as a last-guess warning, after a look-alike', () => {
+    const twin = { ...answer, id: 'twin', name: 'Test Twin Drake' };
+    const e = boardEmbed(board({ guesses: [{ id: 'twin', feedback: compare(twin, answer, SETS) }], hint: { subtypes: [], typeline: 'A ___ of fire' } }), new Map([...cards, ['twin', twin]]));
+    expect(e.fields?.map((f) => f.name)).toEqual(['🪞 A perfect look-alike!', '💡 Your hint']);
+    expect(e.title).toBe('Realmdle #12 · 5 guesses left');
+    expect(e.color).toBe(COLOURS.neutral);
   });
 
   it('hints with the typeline alone for a card with no subtype, and says so without either', () => {

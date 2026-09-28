@@ -46,8 +46,8 @@ it fits only one card, ignoring case and punctuation.
   1,087; avatars can be guessed but never are). Several cards can share
   all six clues, such as seven Ordinary Air Magics costing 2 in Beta, so
   a guess can turn every square green and still be wrong. The board says
-  so ("A perfect look-alike!"), and the last-guess hint, the answer's own
-  typeline, tells them apart.
+  so ("A perfect look-alike!") and gives the hint straight away rather
+  than on the last guess: the answer's own typeline tells them apart.
 
 ## Choosing each day's answer
 
@@ -170,7 +170,7 @@ paste the bot token anywhere; it only goes into Cloudflare.
 npm ci
 node scripts/discord-smoke.mjs keys > .dev.vars   # test key pair, fake server and channel ids
 npm run dev                                        # local D1 + Worker on :8787
-npm run smoke                                      # 28 checks, with a stand-in Discord API on :8799
+npm run smoke                                      # 29 checks (one only when the answer has a look-alike), with a stand-in Discord API on :8799
 npm test && npm run typecheck
 ```
 

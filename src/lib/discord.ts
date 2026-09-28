@@ -115,21 +115,21 @@ export function boardEmbed(board: Board, cards: Map<string, Card>): Embed {
   }
 
   const fields: Embed['fields'] = [];
+  const left = MAX_GUESSES - rows.length;
   const twin = rows.find((r) => allMatch(r.feedback));
   if (twin)
     fields.push({
       name: '🪞 A perfect look-alike!',
-      value: `Every square on **${twin.card.name}** is green, but it isn’t the answer: another card shares all six clues. Your last-guess hint tells them apart.`,
+      value: `Every square on **${twin.card.name}** is green, but it isn’t the answer: another card shares all six clues. Here is your hint early to tell them apart.`,
     });
   if (board.hint) {
     const { subtypes, typeline } = board.hint;
     const kind = subtypes.join(' ');
     const lines = [typeline ? `💡 *“${typeline}”*` : '', kind ? `🏷️ The card is ${/^[AEIOU]/.test(kind) ? 'an' : 'a'} **${kind}**.` : typeline ? '' : '💡 The card has no subtype.'];
-    fields.push({ name: '⚠️ Last guess! Here is a hint ⚠️', value: lines.filter(Boolean).join('\n') });
+    fields.push({ name: left === 1 ? '⚠️ Last guess! Here is a hint ⚠️' : '💡 Your hint', value: lines.filter(Boolean).join('\n') });
   }
-  const left = MAX_GUESSES - rows.length;
   return {
-    color: board.hint ? COLOURS.warning : COLOURS.neutral,
+    color: left === 1 ? COLOURS.warning : COLOURS.neutral,
     title: `Realmdle #${board.puzzle} · ${left === 1 ? '⚠️ last guess' : `${left} guesses left`}`,
     description: lines,
     fields,

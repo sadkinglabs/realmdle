@@ -4,7 +4,7 @@
 import cardData from '../data/cards.json';
 import type { Board } from './lib/board';
 import type { RankedRow, WeekReview } from './lib/discord';
-import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, compare, extendSchedule, looseName, puzzleDate, releaseGate, suggest, veiledTypeline } from './lib/engine';
+import { HINT_AFTER, LOCK_DAYS, MAX_GUESSES, allMatch, compare, extendSchedule, looseName, puzzleDate, releaseGate, suggest, veiledTypeline } from './lib/engine';
 import { playerStats, type Play } from './lib/stats';
 import type { Card, CardData } from './lib/types';
 
@@ -221,16 +221,20 @@ export async function board(db: D1Database, puzzle: number, answer: Card, player
   const today = results.find((r) => r.puzzle === puzzle);
   const ids = today ? (JSON.parse(today.guesses) as string[]) : [];
   const over = today?.finished === 1;
+  const guesses = ids.flatMap((id) => {
+    const card = cardsById.get(id);
+    return card ? [{ id, feedback: compare(card, answer, data.sets) }] : [];
+  });
+  // the hint comes on the last guess, or as soon as a look-alike turns every square green,
+  // when the squares have nothing left to tell
+  const lookAlike = !over && guesses.some((g) => allMatch(g.feedback));
   return {
     ...base,
     player: { name: player.display_name, leaderboard: player.leaderboard === 1 },
-    guesses: ids.flatMap((id) => {
-      const card = cardsById.get(id);
-      return card ? [{ id, feedback: compare(card, answer, data.sets) }] : [];
-    }),
+    guesses,
     over,
     won: today?.solved === 1,
-    hint: ids.length >= HINT_AFTER ? { subtypes: answer.subtypes, typeline: veiledTypeline(answer) } : null,
+    hint: ids.length >= HINT_AFTER || lookAlike ? { subtypes: answer.subtypes, typeline: veiledTypeline(answer) } : null,
     answer: over ? answer.id : null,
     stats: playerStats(results.map(toPlay), puzzle),
   };

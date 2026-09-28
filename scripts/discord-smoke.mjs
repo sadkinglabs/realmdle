@@ -155,6 +155,15 @@ r = await command(finn, 'forget-me', [{ type: 5, name: 'confirm', value: true }]
 const finnStats = await command(finn, 'stats');
 check('forget-me deletes the record: stats start again from nothing', r.body.data.content.includes('deleted') && finnStats.body.data.embeds[0].fields[0].value === '0');
 
+// a look-alike of today's answer (every clue the same) brings the hint early, if the answer has one
+const clues = (c) => JSON.stringify([c.elements, c.type, c.cost, c.power, c.rarity, c.set]);
+const lookAlike = cards.find((c) => c.name !== answer.name && clues(c) === clues(answer));
+if (lookAlike) {
+  r = await quick(user(3, 'Gus'), lookAlike.name);
+  const names = r.body.data.embeds[0].fields?.map((f) => f.name) ?? [];
+  check('a look-alike of the answer says so and gives the hint early', names.includes('🪞 A perfect look-alike!') && names.includes('💡 Your hint'), lookAlike.name);
+} else console.log(`SKIP  look-alike check: ${answer.name} has none`);
+
 // the midnight post: once, however often the hourly job runs
 await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
 await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
