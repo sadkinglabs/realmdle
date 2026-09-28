@@ -18,10 +18,10 @@ export type Card = {
   type: string;
   /** Empty for colourless cards. Sorted in ELEMENTS order. */
   elements: Element[];
-  /** Mana cost; null for cards without one (sites, avatars). */
-  cost: number | null;
-  /** Attack power; null for anything that is not a unit. */
-  power: number | null;
+  /** Mana cost; 'X' for a variable cost (Arcane Barrage); null for cards without one (sites, avatars). */
+  cost: number | 'X' | null;
+  /** Attack power; 'X' for a minion whose power varies (Evil Twin); null for anything that is not a unit. */
+  power: number | 'X' | null;
   rarity: Rarity | null;
   /** Mortal, Beast, Monster, Spirit and so on; empty for most spells and sites. Revealed as the last-guess hint. */
   subtypes: string[];

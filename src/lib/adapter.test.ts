@@ -38,6 +38,8 @@ const registry: RegistryExport = {
     record({ codex_id: 'C000002', name: 'Test Tower', type: 'Site', category: 'Site', subtypes: [], elements: ['None'], cost: null, power: null }),
     record({ codex_id: 'C000003', name: 'Test Token', category: 'Token' }),
     record({ codex_id: 'C000004', name: 'Promo Only' }),
+    record({ codex_id: 'C000006', name: 'Test Barrage', type: 'Magic', cost: null, power: null }),
+    record({ codex_id: 'C000007', name: 'Test Twin', type: 'Minion', cost: 4, power: null }),
     record({ codex_id: 'C000005', name: 'Test Avatar', type: 'Avatar', category: 'Avatar', rarity: null, elements: ['Water', 'Air'] }),
   ],
   printings: [
@@ -50,6 +52,8 @@ const registry: RegistryExport = {
     printing('C000003', '001'),
     printing('C000004', '999'),
     printing('C000005', '001', { image_urls: null }),
+    printing('C000006', '001'),
+    printing('C000007', '001'),
   ],
 };
 
@@ -62,13 +66,21 @@ describe('normalise', () => {
   });
 
   it('makes one entry per card per release set', () => {
-    expect(ids).toEqual(['C000005-001', 'C000001-001', 'C000001-002', 'C000002-002']);
+    expect(ids).toEqual(['C000005-001', 'C000006-001', 'C000001-001', 'C000001-002', 'C000002-002', 'C000007-001']);
   });
 
   it('keeps the same stats across sets, with the set and art of that printing', () => {
     const [first, second] = data.cards.filter((c) => c.name === 'Test Imp');
     expect(first).toEqual({ id: 'C000001-001', name: 'Test Imp', type: 'Minion', elements: ['Fire'], cost: 2, power: 1, rarity: 'Ordinary', subtypes: ['Demon'], set: 'First', image: 'https://img.test/P000002.webp' });
     expect(second).toEqual({ ...first, id: 'C000001-002', set: 'Second', image: 'https://img.test/P000003.webp' });
+  });
+
+  it('marks a variable cost or power as X, unlike a site or avatar with none', () => {
+    const byName = Object.fromEntries(data.cards.map((c) => [c.name, c]));
+    expect(byName['Test Barrage']).toMatchObject({ cost: 'X', power: null });
+    expect(byName['Test Twin']).toMatchObject({ cost: 4, power: 'X' });
+    expect(byName['Test Tower']).toMatchObject({ cost: null, power: null });
+    expect(byName['Test Avatar']).toMatchObject({ cost: 2, power: 1 });
   });
 
   it('leaves out tokens and promo printings, and reads colourless and avatars', () => {

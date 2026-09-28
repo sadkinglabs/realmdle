@@ -132,6 +132,17 @@ describe('compare', () => {
     expect(f.set).toEqual({ verdict: 'wrong', direction: 'down' });
   });
 
+  it('treats a variable (X) cost or power as its own value, never None and never close', () => {
+    const barrage = card({ name: 'Test Barrage', type: 'Magic', cost: 'X', power: null });
+    const site = card({ name: 'Test Site', type: 'Site', elements: [], cost: null, power: null });
+    const twin = card({ name: 'Test Twin', cost: 4, power: 'X' });
+    expect(compare(barrage, site, SETS).cost).toEqual({ verdict: 'wrong', direction: null });
+    expect(compare(barrage, barrage, SETS).cost.verdict).toBe('correct');
+    expect(compare(barrage, answer, SETS).cost).toEqual({ verdict: 'wrong', direction: null });
+    expect(compare(twin, answer, SETS).power).toEqual({ verdict: 'wrong', direction: null });
+    expect(compare(twin, barrage, SETS).power).toEqual({ verdict: 'wrong', direction: null });
+  });
+
   it('treats a missing cost as its own value', () => {
     const site = card({ name: 'Test Site', type: 'Site', elements: [], cost: null, power: null });
     expect(compare(site, answer, SETS).cost).toEqual({ verdict: 'wrong', direction: null });

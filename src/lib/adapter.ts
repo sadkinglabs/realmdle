@@ -70,8 +70,10 @@ export function normalise(registry: RegistryExport, source: string, fetchedAt: s
         name: c.name,
         type: c.type,
         elements: ELEMENTS.filter((e) => c.elements.filter(isElement).includes(e)),
-        cost: c.cost,
-        power: c.power,
+        // The registry has no X: a variable value is stored as null, like a
+        // site's missing cost. Tell them apart so X never matches None.
+        cost: c.cost ?? (c.type === 'Site' || c.type === 'Avatar' ? null : 'X'),
+        power: c.power ?? (c.type === 'Minion' ? 'X' : null),
         rarity: isRarity(c.rarity) ? c.rarity : null,
         subtypes: c.subtypes ?? [],
         set: setName.get(code)!,

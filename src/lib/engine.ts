@@ -219,8 +219,13 @@ function ordinal(guess: number, answer: number, closeWithin: number): Clue {
   return { verdict: Math.abs(answer - guess) <= closeWithin ? 'partial' : 'wrong', direction };
 }
 
-function nullableNumber(guess: number | null, answer: number | null): Clue {
-  if (guess === null || answer === null) return { verdict: guess === answer ? 'correct' : 'wrong', direction: null };
+/**
+ * Cost and power: numbers compare exactly, close within one, with an arrow.
+ * 'X' (variable) and null (none) are values of their own: they match only
+ * themselves, and have no direction against anything else.
+ */
+function costLike(guess: number | 'X' | null, answer: number | 'X' | null): Clue {
+  if (typeof guess !== 'number' || typeof answer !== 'number') return { verdict: guess === answer ? 'correct' : 'wrong', direction: null };
   return ordinal(guess, answer, 1);
 }
 
@@ -235,8 +240,8 @@ export function compare(guess: Card, answer: Card, sets: string[]): Feedback {
   return {
     elements: elementClue(guess.elements, answer.elements),
     type: { verdict: guess.type === answer.type ? 'correct' : 'wrong', direction: null },
-    cost: nullableNumber(guess.cost, answer.cost),
-    power: nullableNumber(guess.power, answer.power),
+    cost: costLike(guess.cost, answer.cost),
+    power: costLike(guess.power, answer.power),
     rarity: ordinal(rank(guess.rarity), rank(answer.rarity), 0),
     set: ordinal(sets.indexOf(guess.set), sets.indexOf(answer.set), 0),
   };
