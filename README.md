@@ -11,7 +11,7 @@ community's server, so the stats and leaderboard are that server's.
 
 ```
 /guess card:<name>                  the quick way to guess: autocomplete lists each card name once
-/realmdle play                      your board for today (also the Play button on the midnight post and every result)
+/realmdle play                      see your board: today's guesses and results, any time (also the Play buttons)
 /realmdle guess card:<name>         the same as /guess
 /realmdle stats [player]            your stats, or anyone's still on the leaderboard
 /realmdle leaderboard [sort]        top ten by current streak, or by solved % (5+ games), plus your place
@@ -86,6 +86,13 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
   Ed25519 key; unsigned or altered requests get 401, so nobody can play as
   someone else by calling the endpoint directly. Commands from any server
   other than `DISCORD_GUILD_ID`, or from DMs, are refused.
+- **Replies never get lost:** Discord gives a command 3 seconds to answer,
+  and the database is in Western Europe while Discord calls from the US.
+  So every command except autocomplete is acknowledged at once
+  ("Realmdle is thinking…") and answered by editing that reply, which
+  Discord allows for 15 minutes; a guess can no longer count without its
+  reply arriving. Smart Placement (`wrangler.jsonc`) runs the Worker near
+  the database to keep it quick.
 - **Stats** (played, solved %, current and best streak, guess spread,
   average) are computed from `plays` by `src/lib/stats.ts`, never stored.
   A streak survives until a whole day is missed.
@@ -173,7 +180,7 @@ paste the bot token anywhere; it only goes into Cloudflare.
 npm ci
 node scripts/discord-smoke.mjs keys > .dev.vars   # test key pair, fake server and channel ids
 npm run dev                                        # local D1 + Worker on :8787
-npm run smoke                                      # 29 checks (one only when the answer has a look-alike), with a stand-in Discord API on :8799
+npm run smoke                                      # 30 checks (one only when the answer has a look-alike), with a stand-in Discord API on :8799
 npm test && npm run typecheck
 ```
 

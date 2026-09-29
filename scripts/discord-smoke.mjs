@@ -40,14 +40,21 @@ const mock = createServer((req, res) => {
   let body = '';
   req.on('data', (c) => (body += c));
   req.on('end', () => {
-    posts.push({ path: req.url, auth: req.headers.authorization ?? null, body: JSON.parse(body || '{}') });
+    posts.push({ method: req.method, path: req.url, auth: req.headers.authorization ?? null, body: JSON.parse(body || '{}') });
     res.writeHead(200, { 'content-type': 'application/json' }).end('{"id":"1"}');
   });
 });
 await new Promise((r) => mock.listen(8799, '127.0.0.1', r));
+const channelPosts = () => posts.filter((p) => p.path.startsWith('/channels/'));
 const waitForPost = async (n) => {
-  for (let i = 0; i < 50 && posts.length < n; i++) await new Promise((r) => setTimeout(r, 100));
-  return posts[n - 1];
+  for (let i = 0; i < 50 && channelPosts().length < n; i++) await new Promise((r) => setTimeout(r, 100));
+  return channelPosts()[n - 1];
+};
+/** The edit that replaces "Realmdle is thinking…" for the interaction with this token. */
+const waitForEdit = async (token) => {
+  const path = `/webhooks/app1/${token}/messages/@original`;
+  for (let i = 0; i < 100 && !posts.some((p) => p.path === path); i++) await new Promise((r) => setTimeout(r, 50));
+  return posts.find((p) => p.path === path);
 };
 
 let failures = 0;
@@ -64,7 +71,11 @@ async function interact(body, { signed = true, guild = '777' } = {}) {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const signature = signed ? sign(null, Buffer.from(timestamp + text), key).toString('hex') : '00'.repeat(64);
   const res = await fetch(`${BASE}/interactions`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-signature-ed25519': signature, 'x-signature-timestamp': timestamp }, body: text });
-  return { status: res.status, body: res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text() };
+  const reply = res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text();
+  if (reply?.type !== 5) return { status: res.status, body: reply };
+  // acknowledged at once; the real reply arrives as an edit of it
+  const edit = await waitForEdit(`tok${seq}`);
+  return { status: res.status, deferred: reply, edit, body: { type: 4, data: { flags: reply.data?.flags, ...edit?.body } } };
 }
 const command = (u, sub, options = [], resolved) => interact({ type: 2, member: { user: u }, data: { name: 'realmdle', options: [{ type: 1, name: sub, options }], resolved } });
 const guess = (u, card) => command(u, 'guess', [{ type: 3, name: 'card', value: card }]);
@@ -86,6 +97,7 @@ r = await interact({ type: 1 });
 check('answers Discord’s ping', r.body.type === 1);
 
 r = opening;
+check('commands are acknowledged at once, privately, then answered by editing that reply', r.deferred?.type === 5 && r.deferred.data.flags === 64 && r.edit?.method === 'PATCH' && !('flags' in r.edit.body));
 check('play: a private welcome board that says how to play', r.body.data.flags === 64 && r.body.data.embeds[0].title.startsWith(`Welcome to Realmdle #${today} - `) && r.body.data.embeds[0].description.includes('/guess'));
 r = await interact({ type: 2, member: { user: eve }, data: { name: 'realmdle', options: [{ type: 1, name: 'play' }] } }, { guild: '999' });
 check('refuses to play in any other server', r.body.data.content.includes('Sorcery TCG Australia'));

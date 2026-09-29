@@ -291,13 +291,40 @@ export async function handleInteraction(request: Request, env: RealmdleEnv, ctx:
   if (!env.DB || !env.PLAN_SALT || !env.DISCORD_GUILD_ID) return notice('Realmdle is not set up yet.');
   // one server's game: nowhere else, not in DMs
   if (interaction.guild_id !== env.DISCORD_GUILD_ID) return notice('Realmdle is played in the Sorcery TCG Australia Discord server.');
-  try {
-    return await handle(env as Ready, ctx, interaction);
-  } catch (err) {
-    // an answer Discord can show, rather than "the application did not respond"; the error goes to Workers Logs
-    console.error('interaction failed', interaction.type, JSON.stringify(interaction.data ?? {}), err);
-    if (interaction.type === 4) return reply({ type: 8, data: { choices: [] } });
-    return notice('Something went wrong on Realmdle’s side. Please try again in a moment.');
+  // autocomplete only reads and has to answer within Discord's 3 seconds
+  if (interaction.type === 4) {
+    try {
+      return await handle(env as Ready, ctx, interaction);
+    } catch (err) {
+      console.error('autocomplete failed', JSON.stringify(interaction.data ?? {}), err);
+      return reply({ type: 8, data: { choices: [] } });
+    }
   }
+  // Everything else is acknowledged at once ("Realmdle is thinking…") and answered by editing
+  // that reply. Discord gives a command 3 seconds but an edit 15 minutes, so a slow database
+  // can no longer save a guess and lose its reply.
+  ctx.waitUntil(answerLater(env as Ready, ctx, interaction));
+  return reply({ type: 5, data: { flags: EPHEMERAL } });
+}
+
+/** Works out the reply and puts it in place of "Realmdle is thinking…". */
+async function answerLater(env: Ready, ctx: ExecutionContext, interaction: Interaction) {
+  let data: Record<string, unknown>;
+  try {
+    const res = await handle(env, ctx, interaction);
+    // the private flag was set when the reply was acknowledged; an edit cannot change it
+    const { flags: _flags, ...rest } = ((await res.json()) as { data: Record<string, unknown> }).data;
+    data = rest;
+  } catch (err) {
+    // the error goes to Workers Logs
+    console.error('interaction failed', interaction.type, JSON.stringify(interaction.data ?? {}), err);
+    data = { content: 'Something went wrong on Realmdle’s side. If you were guessing, it may still have counted: `/realmdle play` shows your board.' };
+  }
+  const res = await fetch(`${discordApi(env)}/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...quiet, ...data }),
+  });
+  if (!res.ok) console.error('reply failed', res.status, await res.text());
 }
 

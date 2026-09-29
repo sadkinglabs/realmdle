@@ -13,6 +13,9 @@
   "triggers": { "crons": ["7 * * * *"] },
   // Workers Logs: errors and console output, in the dashboard under Workers, realmdle, Logs.
   "observability": { "enabled": true },
+  // Discord calls from the US but the database lives in Western Europe; Smart Placement runs
+  // the Worker near the database, so a guess's dozen queries are local rather than transatlantic.
+  "placement": { "mode": "smart" },
   "vars": {
     // Public values from Discord (README.md, setup step 3). The two secrets
     // are set with `npx wrangler secret put`: DISCORD_BOT_TOKEN, PLAN_SALT.

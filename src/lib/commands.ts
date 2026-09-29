@@ -19,7 +19,7 @@ export const COMMANDS = [
     // in the server only, not in DMs
     contexts: [0],
     options: [
-      { type: SUB, name: 'play', description: 'Show your board for today (only you can see it)' },
+      { type: SUB, name: 'play', description: 'See your board: today’s guesses and results (only you can see it)' },
       {
         type: SUB,
         name: 'guess',
