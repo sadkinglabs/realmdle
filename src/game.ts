@@ -134,16 +134,16 @@ export async function releaseAnnouncement(db: D1Database, puzzle: number): Promi
  * A puzzle's winner: the player who solved it in the fewest guesses, and of
  * those, the first to finish. Only players on the leaderboard can win.
  */
-export async function dayWinner(db: D1Database, puzzle: number): Promise<{ id: string; guesses: number } | null> {
+export async function dayWinner(db: D1Database, puzzle: number): Promise<{ name: string; guesses: number } | null> {
   const row = await db
     .prepare(
-      `SELECT x.discord_id, x.attempts FROM plays x JOIN players p ON p.discord_id = x.discord_id
+      `SELECT p.display_name, x.attempts FROM plays x JOIN players p ON p.discord_id = x.discord_id
        WHERE x.puzzle = ? AND x.solved = 1 AND p.leaderboard = 1
        ORDER BY x.attempts, x.finished_at LIMIT 1`,
     )
     .bind(puzzle)
-    .first<{ discord_id: string; attempts: number }>();
-  return row ? { id: row.discord_id, guesses: row.attempts } : null;
+    .first<{ display_name: string; attempts: number }>();
+  return row ? { name: row.display_name, guesses: row.attempts } : null;
 }
 
 /** Claims a one-off job by name (such as a week's recap); false if another run already has. */
@@ -177,12 +177,12 @@ export async function weekInReview(db: D1Database, from: number, to: number): Pr
     .first<{ n: number }>();
   const perfect = await db
     .prepare(
-      `SELECT x.discord_id FROM plays x JOIN players p ON p.discord_id = x.discord_id
+      `SELECT p.display_name FROM plays x JOIN players p ON p.discord_id = x.discord_id
        WHERE p.leaderboard = 1 AND x.puzzle BETWEEN ?1 AND ?2 AND x.solved = 1
        GROUP BY x.discord_id HAVING COUNT(*) = ?3 ORDER BY MIN(x.finished_at)`,
     )
     .bind(from, to, to - from + 1)
-    .all<{ discord_id: string }>();
+    .all<{ display_name: string }>();
   return {
     from,
     to,
@@ -191,7 +191,7 @@ export async function weekInReview(db: D1Database, from: number, to: number): Pr
       const card = cardsById.get(d.card_id);
       return card ? [{ puzzle: d.puzzle, card, finished: d.finished, solved: d.solved, average: d.average === null ? null : Math.round(d.average * 10) / 10 }] : [];
     }),
-    perfect: perfect.results.map((r) => r.discord_id),
+    perfect: perfect.results.map((r) => r.display_name),
   };
 }
 

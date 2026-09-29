@@ -120,7 +120,7 @@ const result = await waitForPost(1);
 const resultText = JSON.stringify(result?.body);
 check('then the bot posts the result publicly in the Realmdle channel', result?.path === '/channels/555/messages' && result.auth === 'Bot test-token' && result.body.flags === undefined && result.body.embeds[0].author.name === `Eve · Realmdle #${today} · 6/6` && result.body.components[0].components[0].custom_id === 'realmdle:play');
 check('the public result never names the card', !resultText.includes(answer.name) && !resultText.includes(answer.image ?? 'no-image'));
-check('the result mentions the player without pinging', resultText.includes(`<@${eve.id}>`) && result.body.allowed_mentions.parse.length === 0);
+check('the result names the player as text, no mention, pinging nobody', resultText.includes('**Eve** solved') && !resultText.includes('<@') && result.body.allowed_mentions.parse.length === 0);
 
 r = await guess(eve, wrong[5].id);
 check('no guesses after finishing', r.body.data.content.includes('already finished'));
@@ -138,7 +138,7 @@ r = await command(eve, 'settings', [{ type: 5, name: 'leaderboard', value: true 
 check('rejoining the leaderboard', r.body.data.content.includes('You are on the leaderboard') && (await eveStats()).body.data.embeds?.[0].author.name === 'Eve · Realmdle stats');
 
 r = await command(finn, 'leaderboard');
-check('leaderboard by streak lists Eve, and Finn needs no tip to join', r.body.data.embeds[0].description.includes(`<@${eve.id}>`) && !r.body.data.content);
+check('leaderboard by streak lists Eve, and Finn needs no tip to join', r.body.data.embeds[0].description.includes("**Eve**") && !r.body.data.content);
 r = await command(finn, 'leaderboard', [{ type: 3, name: 'sort', value: 'solved' }]);
 check('leaderboard by solved % needs 5 games', r.body.data.embeds[0].title.includes('solved %') && !r.body.data.embeds[0].description.includes(eve.id));
 
@@ -169,7 +169,7 @@ await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
 await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
 await new Promise((res) => setTimeout(res, 1500));
 const announcements = posts.filter((p) => p.body.embeds?.[0].title?.includes('is live'));
-check('the midnight post goes out once, with how to play, the top ten and a Play button', announcements.length === 1 && announcements[0].body.embeds[0].description.includes('/guess') && announcements[0].body.embeds[0].fields?.[0].value.includes(`<@${eve.id}>`) && announcements[0].body.components[0].components[0].custom_id === 'realmdle:play', `${announcements.length} posted`);
+check('the midnight post goes out once, with how to play, the top ten and a Play button', announcements.length === 1 && announcements[0].body.embeds[0].description.includes('/guess') && announcements[0].body.embeds[0].fields?.[0].value.includes("**Eve**") && announcements[0].body.components[0].components[0].custom_id === 'realmdle:play', `${announcements.length} posted`);
 
 // the bot registers /realmdle itself, once per change of definition
 await fetch(`${BASE}/`);

@@ -99,7 +99,7 @@ type Interaction = {
 };
 
 const reply = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
-// mentions show a member's name without notifying them
+// posts name players as plain text; this also stops anything in them from pinging anyone
 const quiet = { allowed_mentions: { parse: [] } };
 const privately = (embeds: Embed[], content?: string) => reply({ type: 4, data: { flags: EPHEMERAL, embeds, content, ...quiet } });
 const notice = (text: string) => reply({ type: 4, data: { flags: EPHEMERAL, content: text } });

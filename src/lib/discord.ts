@@ -28,6 +28,15 @@ const SQUARE = { correct: '🟩', partial: '🟨', wrong: '⬛' } as const;
 const SHORT_SET: Record<string, string> = { 'Arthurian Legends': 'Arthurian' };
 const MEDALS = ['🥇', '🥈', '🥉'];
 
+/**
+ * A player as bold text: their display name, never a mention. Discord only
+ * shows a mention inside an embed as a name if the viewer's app has already
+ * loaded that member, so many saw raw ids; names always read, and ping nobody.
+ * Markdown characters are escaped so a name cannot restyle the line.
+ */
+const MARKDOWN = /[\\*_~`|>[\]()]/g;
+export const named = (name: string) => '**' + name.replace(MARKDOWN, '\\$&') + '**';
+
 /** What each clue is called on the board, in Sorcery's own words. */
 export const LABELS: Record<Column, string> = { elements: 'Threshold', type: 'Type', cost: 'Mana', power: 'Power', rarity: 'Rarity', set: 'Set' };
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -165,8 +174,8 @@ export function resultEmbed(board: Board, who: Who): Embed {
   const feedbacks = board.guesses.map((g) => g.feedback);
   const { finished, solved } = board.community;
   const headline = board.won
-    ? `<@${who.id}> solved **Realmdle #${board.puzzle}** in **${feedbacks.length}/${MAX_GUESSES}**`
-    : `<@${who.id}> ran out of guesses on **Realmdle #${board.puzzle}**`;
+    ? `${named(who.name)} solved **Realmdle #${board.puzzle}** in **${feedbacks.length}/${MAX_GUESSES}**`
+    : `${named(who.name)} ran out of guesses on **Realmdle #${board.puzzle}**`;
   const standing = [board.stats?.currentStreak ? `🔥 **${board.stats.currentStreak}**-day streak` : '', board.won ? place(solved) : ''].filter(Boolean).join(' · ');
   const day = `👥 **${finished}** ${finished === 1 ? 'player' : 'players'} today · **${solved}** solved`;
   return {
@@ -238,8 +247,8 @@ export function rank(rows: RankedRow[], sort: LeaderboardSort): RankedRow[] {
 
 /**
  * Top ten, each with streak and solved %, plus the viewer's own place if
- * they are further down. Names are mentions, which show each member's
- * server name without pinging them (see allowed_mentions where it is sent).
+ * they are further down. Players appear by display name (`named`), never
+ * as mentions.
  */
 export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, viewerId: string | null, puzzle: number): Embed {
   const line = (r: RankedRow, i: number) => {
@@ -248,8 +257,8 @@ export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, vie
     const avg = r.averageGuesses === null ? '' : ` · ${r.averageGuesses} avg`;
     const you = r.id === viewerId ? '  ← you' : '';
     return sort === 'streak'
-      ? `${place} <@${r.id}>  ${streak} · best ${r.maxStreak} · ${r.winRate}% solved${you}`
-      : `${place} <@${r.id}>  **${r.winRate}%** solved · ${r.played} played${avg} · ${streak}${you}`;
+      ? `${place} ${named(r.name)}  ${streak} · best ${r.maxStreak} · ${r.winRate}% solved${you}`
+      : `${place} ${named(r.name)}  **${r.winRate}%** solved · ${r.played} played${avg} · ${streak}${you}`;
   };
   const top = ranked.slice(0, 10).map(line);
   const mine = viewerId ? ranked.findIndex((r) => r.id === viewerId) : -1;
@@ -270,16 +279,16 @@ export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, vie
  * The midnight post: yesterday's reveal, how to play, and the top ten so
  * far (players on the leaderboard, ranked by streak), above a Play button.
  */
-export type Yesterday = { card: Card; finished: number; solved: number; winner: { id: string; guesses: number } | null };
+export type Yesterday = { card: Card; finished: number; solved: number; winner: { name: string; guesses: number } | null };
 
 export function announcementEmbed(puzzle: number, yesterday: Yesterday | null, ranked: RankedRow[] = []): Embed {
   const winner = yesterday?.winner
-    ? `\n👑 Yesterday's winner: <@${yesterday.winner.id}>, solved in **${yesterday.winner.guesses}**${yesterday.solved > 1 ? ', fewest guesses and first to do it' : ''}`
+    ? `\n👑 Yesterday's winner: ${named(yesterday.winner.name)}, solved in **${yesterday.winner.guesses}**${yesterday.solved > 1 ? ', fewest guesses and first to do it' : ''}`
     : '';
   const recap = yesterday
     ? `Yesterday's card was **${yesterday.card.name}** (${yesterday.card.set}).\n👥 **${yesterday.finished}** played · **${yesterday.solved}** solved${winner}`
     : 'The first Realmdle is here!';
-  const top = ranked.slice(0, 10).map((r, i) => `${MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``} <@${r.id}>  🔥 **${r.currentStreak}** · ${r.winRate}% · ${r.played} played`);
+  const top = ranked.slice(0, 10).map((r, i) => `${MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``} ${named(r.name)}  🔥 **${r.currentStreak}** · ${r.winRate}% · ${r.played} played`);
   return {
     color: COLOURS.neutral,
     title: `🔮 Realmdle #${puzzle} is live`,
@@ -291,6 +300,7 @@ export function announcementEmbed(puzzle: number, yesterday: Yesterday | null, r
 }
 
 export type WeekDay = { puzzle: number; card: Card; finished: number; solved: number; average: number | null };
+/** `perfect` holds the display names of leaderboard players who solved every day. */
 export type WeekReview = { from: number; to: number; players: number; days: WeekDay[]; perfect: string[] };
 
 const percent = (solved: number, finished: number) => Math.round((solved / finished) * 100);
@@ -327,8 +337,8 @@ export function recapEmbed(week: WeekReview, ranked: RankedRow[]): Embed {
     ]
       .filter(Boolean)
       .join('\n'),
-    streaks.length ? `🔥 **Longest streaks**\n${streaks.map((r, i) => `${MEDALS[i] ?? '🏅'} <@${r.id}> **${r.currentStreak}** days`).join('\n')}` : '',
-    week.perfect.length ? `🎯 **Perfect week**, all ${week.to - week.from + 1} solved: ${week.perfect.map((id) => `<@${id}>`).join(' ')}` : '',
+    streaks.length ? `🔥 **Longest streaks**\n${streaks.map((r, i) => `${MEDALS[i] ?? '🏅'} ${named(r.name)} **${r.currentStreak}** days`).join('\n')}` : '',
+    week.perfect.length ? `🎯 **Perfect week**, all ${week.to - week.from + 1} solved: ${week.perfect.map(named).join(', ')}` : '',
   ];
   return {
     color: COLOURS.gold,

@@ -89,8 +89,11 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
 - **Stats** (played, solved %, current and best streak, guess spread,
   average) are computed from `plays` by `src/lib/stats.ts`, never stored.
   A streak survives until a whole day is missed.
-- **The public result** shows the player (a mention, which does not ping
-  them), score, a cheer, the squares, their streak, their place among the
+- **Names, never mentions:** posts name players by their display name in
+  bold. Discord only shows a mention inside an embed as a name when the
+  viewer's app has that member loaded, so mentions often showed as raw
+  ids; names always read, and the bot never pings anyone.
+- **The public result** shows the player, score, a cheer, the squares, their streak, their place among the
   day's solvers and how many played and solved, with a Play button so
   anyone reading it is one tap from their own board. It never names the
   card. The bot posts it to `DISCORD_CHANNEL_ID`.

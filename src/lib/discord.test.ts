@@ -122,7 +122,7 @@ describe('public result', () => {
     const e = resultEmbed(finished, who);
     expect(e.author?.name).toBe('Bob · Realmdle #12 · 2/6');
     expect(e.description).toBe(
-      `<@${who.id}> solved **Realmdle #12** in **2/6**\n*🔥 Scary good!*\n\n${grid(finished.guesses.map((g) => g.feedback))}\n\n` +
+      `**Bob** solved **Realmdle #12** in **2/6**\n*🔥 Scary good!*\n\n${grid(finished.guesses.map((g) => g.feedback))}\n\n` +
         '🔥 **2**-day streak · 🏅 24th to solve today\n👥 **31** players today · **24** solved',
     );
     expect(e.fields).toBeUndefined();
@@ -175,21 +175,21 @@ describe('leaderboard', () => {
   it('shows the top ten with medals and adds the viewer further down', () => {
     const e = leaderboardEmbed(rank(rows, 'streak'), 'streak', 'z9', 12);
     const lines = e.description!.split('\n');
-    expect(lines[0]).toBe('🥇 <@b>  🔥 **9** · best 0 · 70% solved');
+    expect(lines[0]).toBe('🥇 **b**  🔥 **9** · best 0 · 70% solved');
     expect(lines).toHaveLength(12);
     expect(lines[10]).toBe('⋯');
-    expect(lines[11]).toContain('<@z9>'); // names sort as text, so z9 is last
+    expect(lines[11]).toContain('**z9**'); // names sort as text, so z9 is last
     expect(lines[11]).toContain('← you');
   });
 });
 
 describe('midnight post', () => {
   it('recaps yesterday and invites people to play', () => {
-    const e = announcementEmbed(13, { card: answer, finished: 31, solved: 24, winner: { id: '42', guesses: 2 } });
+    const e = announcementEmbed(13, { card: answer, finished: 31, solved: 24, winner: { name: 'Mo_the*Mage', guesses: 2 } });
     expect(e.title).toBe('🔮 Realmdle #13 is live');
     expect(e.description).toContain("Yesterday's card was **Test Drake** (Beta).\n👥 **31** played · **24** solved");
     expect(e.description).toContain(HOW_TO);
-    expect(e.description).toContain("👑 Yesterday's winner: <@42>, solved in **2**, fewest guesses and first to do it");
+    expect(e.description).toContain("👑 Yesterday's winner: **Mo\\_the\\*Mage**, solved in **2**, fewest guesses and first to do it");
     expect(e.fields).toBeUndefined(); // nobody on the leaderboard yet
     expect(announcementEmbed(13, { card: answer, finished: 3, solved: 0, winner: null }).description).not.toContain('winner');
   });
@@ -198,8 +198,8 @@ describe('midnight post', () => {
     const rows: RankedRow[] = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, name: `p${i}`, currentStreak: 12 - i, maxStreak: 12, winRate: 90, played: 20, averageGuesses: 3 }));
     const lines = announcementEmbed(13, null, rows).fields![0].value.split('\n');
     expect(lines).toHaveLength(10);
-    expect(lines[0]).toBe('🥇 <@p0>  🔥 **12** · 90% · 20 played');
-    expect(lines[9]).toBe('`10` <@p9>  🔥 **3** · 90% · 20 played');
+    expect(lines[0]).toBe('🥇 **p0**  🔥 **12** · 90% · 20 played');
+    expect(lines[9]).toBe('`10` **p9**  🔥 **3** · 90% · 20 played');
   });
 });
 
@@ -223,9 +223,9 @@ describe('weekly recap', () => {
     expect(e.description).toContain('`#3` **Test Imp** · Arthurian · nobody played');
     expect(e.description).toContain('💀 **Hardest:** Test Drake (Beta), 3 of 10 solved');
     expect(e.description).toContain('🍰 **Easiest:** Test Imp (Arthurian Legends), 90% solved, 3.1 guesses on average');
-    expect(e.description).toContain('🥇 <@a> **7** days\n🥈 <@b> **3** days');
-    expect(e.description).not.toContain('<@c>'); // no streak, not listed
-    expect(e.description).toContain('🎯 **Perfect week**, all 7 solved: <@a>');
+    expect(e.description).toContain('🥇 **a** **7** days\n🥈 **b** **3** days');
+    expect(e.description).not.toContain('**c**'); // no streak, not listed
+    expect(e.description).toContain('🎯 **Perfect week**, all 7 solved: **a**');
     expect(e.thumbnail?.url).toBe(answer.image);
   });
 });
