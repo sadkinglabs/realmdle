@@ -14,7 +14,7 @@ community's server, so the stats and leaderboard are that server's.
 /realmdle play                      see your board: today's guesses and results, any time (also the Play buttons)
 /realmdle guess card:<name>         the same as /guess
 /realmdle stats [player]            your stats, or anyone's still on the leaderboard
-/realmdle leaderboard [sort]        top ten by current streak, or by solved % (5+ games), plus your place
+/realmdle leaderboard [sort]        top ten by current streak, or by solved % (5+ games), plus your place; ties go to fewer average guesses
 /realmdle settings leaderboard:<>   leave (False) or rejoin (True) the leaderboard; players are on it by default
 /realmdle forget-me confirm:True    delete your record and every game
 ```

@@ -172,10 +172,19 @@ describe('leaderboard', () => {
     expect(rank(rows, 'solved')[0].id).toBe('a'); // c has 100% but only 2 games
   });
 
+  it('breaks a tie on streak and solved % by average guesses, before the name', () => {
+    const tied = [
+      row('Alice', { currentStreak: 3, maxStreak: 3, winRate: 100, averageGuesses: 4.7 }),
+      row('Zed', { currentStreak: 3, maxStreak: 3, winRate: 100, averageGuesses: 2.3 }),
+      row('Mia', { currentStreak: 3, maxStreak: 3, winRate: 100, averageGuesses: null }),
+    ];
+    expect(rank(tied, 'streak').map((r) => r.id)).toEqual(['Zed', 'Alice', 'Mia']);
+  });
+
   it('shows the top ten with medals and adds the viewer further down', () => {
     const e = leaderboardEmbed(rank(rows, 'streak'), 'streak', 'z9', 12);
     const lines = e.description!.split('\n');
-    expect(lines[0]).toBe('🥇 **b**  🔥 **9** · best 0 · 70% solved');
+    expect(lines[0]).toBe('🥇 **b**  🔥 **9** · best 0 · 70% solved · 3.0 avg');
     expect(lines).toHaveLength(12);
     expect(lines[10]).toBe('⋯');
     expect(lines[11]).toContain('**z9**'); // names sort as text, so z9 is last
@@ -194,12 +203,14 @@ describe('midnight post', () => {
     expect(announcementEmbed(13, { card: answer, finished: 3, solved: 0, winner: null }).description).not.toContain('winner');
   });
 
-  it('shows the top ten with streak, solved % and games played', () => {
-    const rows: RankedRow[] = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, name: `p${i}`, currentStreak: 12 - i, maxStreak: 12, winRate: 90, played: 20, averageGuesses: 3 }));
-    const lines = announcementEmbed(13, null, rows).fields![0].value.split('\n');
+  it('shows the top ten with streak, solved %, average guesses and games played', () => {
+    const rows: RankedRow[] = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, name: `p${i}`, currentStreak: 12 - i, maxStreak: 12, winRate: 90, played: 20, averageGuesses: 3.25 }));
+    const e = announcementEmbed(13, null, rows);
+    const lines = e.fields![0].value.split('\n');
+    expect(e.fields![0].name).toBe('🏆 Top 10 · streak · solved · avg guesses · played');
     expect(lines).toHaveLength(10);
-    expect(lines[0]).toBe('🥇 **p0**  🔥 **12** · 90% · 20 played');
-    expect(lines[9]).toBe('`10` **p9**  🔥 **3** · 90% · 20 played');
+    expect(lines[0]).toBe('🥇 **p0**  🔥 **12** · 90% · 3.3 avg · 20 played');
+    expect(lines[9]).toBe('`10` **p9**  🔥 **3** · 90% · 3.3 avg · 20 played');
   });
 });
 

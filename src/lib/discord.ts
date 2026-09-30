@@ -238,12 +238,17 @@ export const MIN_GAMES_FOR_PERCENT = 5;
 
 export function rank(rows: RankedRow[], sort: LeaderboardSort): RankedRow[] {
   const byName = (a: RankedRow, b: RankedRow) => a.name.localeCompare(b.name);
+  // fewer guesses on average ranks higher; no solves yet ranks below any average
+  const byGuesses = (a: RankedRow, b: RankedRow) => (a.averageGuesses ?? 9) - (b.averageGuesses ?? 9);
   return sort === 'streak'
-    ? [...rows].sort((a, b) => b.currentStreak - a.currentStreak || b.maxStreak - a.maxStreak || b.winRate - a.winRate || byName(a, b))
+    ? [...rows].sort((a, b) => b.currentStreak - a.currentStreak || b.maxStreak - a.maxStreak || b.winRate - a.winRate || byGuesses(a, b) || byName(a, b))
     : rows
         .filter((r) => r.played >= MIN_GAMES_FOR_PERCENT)
-        .sort((a, b) => b.winRate - a.winRate || (a.averageGuesses ?? 9) - (b.averageGuesses ?? 9) || b.played - a.played || byName(a, b));
+        .sort((a, b) => b.winRate - a.winRate || byGuesses(a, b) || b.played - a.played || byName(a, b));
 }
+
+/** " · 3.7 avg" for a player's average guesses per solve, or nothing before their first solve. */
+const avgGuesses = (r: RankedRow) => (r.averageGuesses === null ? '' : ` · ${r.averageGuesses.toFixed(1)} avg`);
 
 /**
  * Top ten, each with streak and solved %, plus the viewer's own place if
@@ -254,11 +259,10 @@ export function leaderboardEmbed(ranked: RankedRow[], sort: LeaderboardSort, vie
   const line = (r: RankedRow, i: number) => {
     const place = MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``;
     const streak = r.currentStreak ? `🔥 **${r.currentStreak}**` : '🔥 0';
-    const avg = r.averageGuesses === null ? '' : ` · ${r.averageGuesses} avg`;
     const you = r.id === viewerId ? '  ← you' : '';
     return sort === 'streak'
-      ? `${place} ${named(r.name)}  ${streak} · best ${r.maxStreak} · ${r.winRate}% solved${you}`
-      : `${place} ${named(r.name)}  **${r.winRate}%** solved · ${r.played} played${avg} · ${streak}${you}`;
+      ? `${place} ${named(r.name)}  ${streak} · best ${r.maxStreak} · ${r.winRate}% solved${avgGuesses(r)}${you}`
+      : `${place} ${named(r.name)}  **${r.winRate}%** solved · ${r.played} played${avgGuesses(r)} · ${streak}${you}`;
   };
   const top = ranked.slice(0, 10).map(line);
   const mine = viewerId ? ranked.findIndex((r) => r.id === viewerId) : -1;
@@ -288,13 +292,13 @@ export function announcementEmbed(puzzle: number, yesterday: Yesterday | null, r
   const recap = yesterday
     ? `Yesterday's card was **${yesterday.card.name}** (${yesterday.card.set}).\n👥 **${yesterday.finished}** played · **${yesterday.solved}** solved${winner}`
     : 'The first Realmdle is here!';
-  const top = ranked.slice(0, 10).map((r, i) => `${MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``} ${named(r.name)}  🔥 **${r.currentStreak}** · ${r.winRate}% · ${r.played} played`);
+  const top = ranked.slice(0, 10).map((r, i) => `${MEDALS[i] ?? `\`${String(i + 1).padStart(2)}\``} ${named(r.name)}  🔥 **${r.currentStreak}** · ${r.winRate}%${avgGuesses(r)} · ${r.played} played`);
   return {
     color: COLOURS.neutral,
     title: `🔮 Realmdle #${puzzle} is live`,
     description: `${recap}\n\n${HOW_TO}`,
     thumbnail: yesterday?.card.image ? { url: yesterday.card.image } : undefined,
-    fields: top.length ? [{ name: '🏆 Top 10 · streak · solved · played', value: top.join('\n') }] : undefined,
+    fields: top.length ? [{ name: '🏆 Top 10 · streak · solved · avg guesses · played', value: top.join('\n') }] : undefined,
     footer: { text: 'New card every midnight, Sydney time · play daily to climb the top 10' },
   };
 }
