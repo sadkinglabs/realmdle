@@ -134,7 +134,7 @@ export async function announce(env: RealmdleEnv & { DB: D1Database }, today: num
   if (!channelReady(env) || !(await claimAnnouncement(env.DB, today))) return;
   const card = today > 1 ? await answerFor(env.DB, today - 1) : null;
   const yesterday = card ? { card, ...(await dayCounts(env.DB, today - 1)), winner: await dayWinner(env.DB, today - 1) } : null;
-  const ranked = rank(await leaderboardRows(env.DB, today), 'streak');
+  const ranked = rank(await leaderboardRows(env.DB, today, { finishedDaysOnly: true }), 'streak');
   const res = await fetch(`${discordApi(env)}/channels/${env.DISCORD_CHANNEL_ID}/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bot ${env.DISCORD_BOT_TOKEN}` },
@@ -162,7 +162,7 @@ export async function recap(env: RealmdleEnv & { DB: D1Database }, today: number
   if (!(await claimOnce(env.DB, key))) return;
   const week = await weekInReview(env.DB, from, today - 1);
   if (!week.players) return;
-  const ranked = rank(await leaderboardRows(env.DB, today), 'streak');
+  const ranked = rank(await leaderboardRows(env.DB, today, { finishedDaysOnly: true }), 'streak');
   const res = await fetch(`${discordApi(env)}/channels/${env.DISCORD_CHANNEL_ID}/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bot ${env.DISCORD_BOT_TOKEN}` },

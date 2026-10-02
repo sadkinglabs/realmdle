@@ -106,12 +106,15 @@ scripts/              fetch-cards (card pool), discord-commands (register /realm
   card. The bot posts it to `DISCORD_CHANNEL_ID`.
 - **The finished board** (private) reveals the card and art, the streak and
   a live countdown to the next card.
-- **The midnight post** goes to the same channel on the first hourly run
-  of the Sydney day: yesterday's card and numbers, yesterday's winner
-  (solved in the fewest guesses, and of those the first to finish, among
-  players on the leaderboard), how to play, the top
-  ten on the leaderboard (streak, solved %, games played) and a Play
-  button. The `announcements` table makes it once per day.
+- **The midnight post** goes to the same channel at midnight Sydney time
+  (the hourly job runs on the hour): yesterday's card and numbers,
+  yesterday's winner (solved in the fewest guesses, and of those the first
+  to finish, among players on the leaderboard), how to play, the top ten
+  on the leaderboard (streak, solved %, average guesses, games played) and
+  a Play button. The top ten, like the weekly recap's streaks, counts
+  finished days only, so a player who solves the new card straight after
+  midnight is not a day ahead of everyone else; `/realmdle leaderboard`
+  stays live. The `announcements` table makes it once per day.
 - **The weekly recap** goes out on Mondays, just before that day's post:
   the week just finished (Monday to Sunday; #1 was a Monday) with its
   totals, every day's card and how many solved it, the hardest and
@@ -180,7 +183,7 @@ paste the bot token anywhere; it only goes into Cloudflare.
 npm ci
 node scripts/discord-smoke.mjs keys > .dev.vars   # test key pair, fake server and channel ids
 npm run dev                                        # local D1 + Worker on :8787
-npm run smoke                                      # 30 checks (one only when the answer has a look-alike), with a stand-in Discord API on :8799
+npm run smoke                                      # 31 checks (one only when the answer has a look-alike), with a stand-in Discord API on :8799
 npm test && npm run typecheck
 ```
 

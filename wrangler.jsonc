@@ -10,7 +10,7 @@
   "routes": [{ "pattern": "realmdle.realmofoz.com", "custom_domain": true }],
   "workers_dev": false,
   // Hourly: plan today and the week ahead, and post the midnight message.
-  "triggers": { "crons": ["7 * * * *"] },
+  "triggers": { "crons": ["0 * * * *"] },
   // Workers Logs: errors and console output, in the dashboard under Workers, realmdle, Logs.
   "observability": { "enabled": true },
   // Discord calls from the US but the database lives in Western Europe; Smart Placement runs

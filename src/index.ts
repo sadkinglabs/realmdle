@@ -33,12 +33,14 @@ export default {
     return new Response('Not found', { status: 404 });
   },
 
-  // Hourly (see triggers in wrangler.jsonc): plan today and the week ahead,
-  // so a player never waits on the planner, and post the day's message on
-  // the first run after midnight in Sydney.
-  async scheduled(_event, env, ctx) {
+  // Hourly, on the hour (see triggers in wrangler.jsonc): plan today and the
+  // week ahead, so a player never waits on the planner, and post the day's
+  // message on the midnight run in Sydney (retried hourly if Discord refuses it).
+  async scheduled(event, env, ctx) {
     if (!gameReady(env)) return;
-    const today = puzzleNumber(new Date());
+    // runs on the hour: the midnight run's scheduled time is exactly midnight in Sydney, so it
+    // always counts as the new day (and the post goes out before anyone's result)
+    const today = puzzleNumber(new Date(Math.max(Date.now(), event.scheduledTime)));
     // on Mondays the week's recap goes first, so the day's post (with its Play button) is the latest
     ctx.waitUntil(
       ensurePlanned(env.DB, env.PLAN_SALT, today)

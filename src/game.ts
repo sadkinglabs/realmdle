@@ -276,14 +276,20 @@ export async function guess(db: D1Database, playerId: string, puzzle: number, an
   return { ok: true };
 }
 
-/** Every player who chose to be listed, with their stats. Ranking is `rank` in discord.ts. */
-export async function leaderboardRows(db: D1Database, today: number): Promise<RankedRow[]> {
+/**
+ * Every player on the leaderboard, with their stats. Ranking is `rank` in discord.ts.
+ * `finishedDaysOnly` leaves out today's puzzle: the standings as the day began, for the
+ * midnight post and the weekly recap, so a player who solves today's card before the post
+ * goes out is not a day ahead of everyone else. A streak still counts up to yesterday.
+ */
+export async function leaderboardRows(db: D1Database, today: number, { finishedDaysOnly = false } = {}): Promise<RankedRow[]> {
   const { results } = await db
     .prepare(
       `SELECT p.discord_id, p.display_name, x.puzzle, x.attempts, x.solved, x.finished
        FROM players p JOIN plays x ON x.discord_id = p.discord_id
-       WHERE p.leaderboard = 1 AND x.finished = 1`,
+       WHERE p.leaderboard = 1 AND x.finished = 1 AND x.puzzle < ?`,
     )
+    .bind(finishedDaysOnly ? today : today + 1)
     .all<PlayRow & { discord_id: string; display_name: string }>();
   const byPlayer = new Map<string, { name: string; plays: Play[] }>();
   for (const r of results) {

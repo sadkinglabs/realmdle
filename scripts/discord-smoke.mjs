@@ -177,11 +177,13 @@ if (lookAlike) {
 } else console.log(`SKIP  look-alike check: ${answer.name} has none`);
 
 // the midnight post: once, however often the hourly job runs
-await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
-await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=7+*+*+*+*`);
+await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=0+*+*+*+*`);
+await fetch(`${BASE}/cdn-cgi/handler/scheduled?cron=0+*+*+*+*`);
 await new Promise((res) => setTimeout(res, 1500));
 const announcements = posts.filter((p) => p.body.embeds?.[0].title?.includes('is live'));
-check('the midnight post goes out once, with how to play, the top ten and a Play button', announcements.length === 1 && announcements[0].body.embeds[0].description.includes('/guess') && announcements[0].body.embeds[0].fields?.[0].value.includes("**Eve**") && announcements[0].body.components[0].components[0].custom_id === 'realmdle:play', `${announcements.length} posted`);
+check('the midnight post goes out once, with how to play and a Play button', announcements.length === 1 && announcements[0].body.embeds[0].description.includes('/guess') && announcements[0].body.components[0].components[0].custom_id === 'realmdle:play', `${announcements.length} posted`);
+// Eve and Finn only played today: the top 10 counts finished days, so early solves give nobody a head start
+check('its top 10 leaves out today’s puzzle, though the live leaderboard counts it', announcements[0]?.body.embeds[0].fields === undefined);
 
 // the bot registers /realmdle itself, once per change of definition
 await fetch(`${BASE}/`);
